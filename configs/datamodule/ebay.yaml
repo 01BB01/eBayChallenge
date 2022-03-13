@@ -1,0 +1,21 @@
+_target_: src.datamodules.ebay_datamodule.eBayDataModule
+
+data_dir: ${data_dir} # data_dir is specified in config.yaml
+batch_size: 64
+num_workers: 16
+pin_memory: True
+train_transforms:
+  - _target_: torchvision.transforms.Resize
+    size: [256, 256]
+  - _target_: torchvision.transforms.RandomHorizontalFlip
+  - _target_: torchvision.transforms.ToTensor
+  - _target_: torchvision.transforms.Normalize
+    mean: [0.46777044, 0.44531429, 0.40661017]
+    std: [0.12221994, 0.12145835, 0.14380469]
+val_transforms:
+  - _target_: torchvision.transforms.Resize
+    size: [256, 256]
+  - _target_: torchvision.transforms.ToTensor
+  - _target_: torchvision.transforms.Normalize
+    mean: [0.46777044, 0.44531429, 0.40661017]
+    std: [0.12221994, 0.12145835, 0.14380469]
