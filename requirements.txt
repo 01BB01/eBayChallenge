@@ -30,3 +30,4 @@ pytest          # tests
 sh              # for running bash commands in some tests
 pudb            # debugger
 pandas          # read and write csv files
+evalai          # platform CLI for submission

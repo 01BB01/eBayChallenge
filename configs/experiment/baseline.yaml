@@ -8,7 +8,7 @@ defaults:
   - override /model: ebay.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
-  - override /trainer: default.yaml
+  - override /trainer: ddp.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
@@ -29,7 +29,7 @@ model:
     name: resnet50
 
 datamodule:
-  batch_size: 64
+  batch_size: 256
 
 logger:
   wandb:
