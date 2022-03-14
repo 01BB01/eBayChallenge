@@ -3,6 +3,7 @@ from typing import Any, List
 import torch
 import torch.nn as nn
 from pytorch_lightning import LightningModule
+from torch.optim.lr_scheduler import MultiStepLR
 from torchmetrics import MaxMetric
 from torchmetrics.classification.accuracy import Accuracy
 
@@ -17,6 +18,8 @@ class eBayModule(LightningModule):
         num_classes_1: int = 16,
         num_classes_2: int = 75,
         num_classes_3: int = 1000,
+        warmup_steps: int = -1,
+        milestones: List[int] = None,
     ):
         super().__init__()
 
@@ -112,6 +115,30 @@ class eBayModule(LightningModule):
         See examples here:
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        return torch.optim.Adam(
+        optimizer = torch.optim.Adam(
             params=self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
         )
+        if self.hparams.milestones is not None:
+            lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
+            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
+        return {"optimizer": optimizer}
+
+    def optimizer_step(
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_idx,
+        optimizer_closure,
+        on_tpu,
+        using_native_amp,
+        using_lbfgs,
+    ):
+        # update params
+        optimizer.step(closure=optimizer_closure)
+
+        # manually warm up lr without a scheduler
+        if self.trainer.global_step < self.hparams.warmup_steps:
+            lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_scale * self.hparams.lr
