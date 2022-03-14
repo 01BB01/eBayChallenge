@@ -2,6 +2,8 @@ import os
 from typing import List
 
 import hydra
+import pandas as pd
+import torch
 from omegaconf import DictConfig
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer, seed_everything
 from pytorch_lightning.loggers import LightningLoggerBase
@@ -9,6 +11,15 @@ from pytorch_lightning.loggers import LightningLoggerBase
 from src import utils
 
 log = utils.get_logger(__name__)
+
+
+def gather_filed(predictions):
+    feats = []
+    uuid = []
+    for pred in predictions:
+        feats.extend(pred["feats"])
+        uuid.extend(pred["uuid"])
+    return torch.stack(feats), uuid
 
 
 def test(config: DictConfig) -> None:
@@ -54,4 +65,19 @@ def test(config: DictConfig) -> None:
     trainer.logger.log_hyperparams({"ckpt_path": config.ckpt_path})
 
     log.info("Starting testing!")
-    trainer.test(model=model, datamodule=datamodule, ckpt_path=config.ckpt_path)
+    query_predictions, index_predictions = trainer.predict(
+        model=model, datamodule=datamodule, ckpt_path=config.ckpt_path
+    )
+
+    # FIXME: more elegant solution
+    query_feats, query_uuid = gather_filed(query_predictions)
+    index_feats, index_uuid = gather_filed(index_predictions)
+    dist_matrix = torch.cdist(query_feats, index_feats)
+    _, pred_indices = torch.topk(-dist_matrix, k=10, dim=1, largest=True, sorted=True)
+
+    log.info("Writing predictions csv!")
+    df = pd.DataFrame(zip(query_uuid, pred_indices.cpu().numpy()))
+    df[1] = df[1].apply(lambda x: " ".join([index_uuid[i] for i in x]))
+    if not os.path.isabs(config.csv_save_dir):
+        config.csv_save_dir = os.path.join(hydra.utils.get_original_cwd(), config.csv_save_dir)
+    df.to_csv(os.path.join(config.csv_save_dir, "predictions.csv"), index=False, header=False)

@@ -3,8 +3,8 @@
 # specify here default evaluation configuration
 defaults:
   - _self_
-  - datamodule: mnist.yaml # choose the datamodule for evaluation
-  - model: mnist.yaml
+  - datamodule: ebay.yaml # choose the datamodule for evaluation
+  - model: ebay.yaml
   - callbacks: null
   - logger: null
   - trainer: default.yaml
@@ -18,7 +18,9 @@ defaults:
 
 original_work_dir: ${hydra:runtime.cwd}
 
-data_dir: ${original_work_dir}/data/
+data_dir: ${original_work_dir}/data/eBay
+
+csv_save_dir: ${hydra:run.dir}
 
 print_config: True
 
@@ -26,7 +28,7 @@ ignore_warnings: True
 
 seed: null
 
-name: "default"
+name: "baseline"
 
 # passing checkpoint path is necessary
 ckpt_path: ???

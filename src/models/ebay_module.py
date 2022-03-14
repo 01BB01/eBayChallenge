@@ -96,6 +96,10 @@ class eBayModule(LightningModule):
     def test_epoch_end(self, outputs: List[Any]):
         pass
 
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int):
+        feats = self.forward(batch["image"])
+        return {"feats": feats, "uuid": batch["uuid"]}
+
     def on_epoch_end(self):
         # reset metrics at the end of every epoch
         self.train_acc.reset()
