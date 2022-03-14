@@ -15,8 +15,6 @@ class eBayDataset(Dataset):
         self.transform = transform
 
     def __len__(self):
-        if self.split_name == "index":
-            return 5000
         return len(self.annotations["UUID"])
 
     def __getitem__(self, idx):

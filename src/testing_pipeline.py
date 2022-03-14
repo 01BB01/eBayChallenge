@@ -72,7 +72,16 @@ def test(config: DictConfig) -> None:
     # FIXME: more elegant solution
     query_feats, query_uuid = gather_filed(query_predictions)
     index_feats, index_uuid = gather_filed(index_predictions)
-    dist_matrix = torch.cdist(query_feats, index_feats)
+
+    dist_matrix = []
+    chunk_size = 5000
+    for i in range(index_feats.shape[0] // chunk_size + 1):
+        start = i * chunk_size
+        end = start + chunk_size
+        dist = torch.cdist(query_feats, index_feats[start:end])  # q * 5000
+        dist_matrix.append(dist)
+
+    dist_matrix = torch.cat(dist_matrix, dim=1)  # q * i
     _, pred_indices = torch.topk(-dist_matrix, k=10, dim=1, largest=True, sorted=True)
 
     log.info("Writing predictions csv!")
