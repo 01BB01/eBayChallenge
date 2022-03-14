@@ -6,7 +6,7 @@ num_workers: 8
 pin_memory: True
 train_transforms:
   - _target_: torchvision.transforms.Resize
-    size: [256, 256]
+    size: [224, 224]
   - _target_: torchvision.transforms.RandomHorizontalFlip
   - _target_: torchvision.transforms.ToTensor
   - _target_: torchvision.transforms.Normalize
@@ -14,7 +14,7 @@ train_transforms:
     std: [0.12221994, 0.12145835, 0.14380469]
 val_transforms:
   - _target_: torchvision.transforms.Resize
-    size: [256, 256]
+    size: [224, 224]
   - _target_: torchvision.transforms.ToTensor
   - _target_: torchvision.transforms.Normalize
     mean: [0.46777044, 0.44531429, 0.40661017]
