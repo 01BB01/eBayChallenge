@@ -29,4 +29,5 @@ rich            # beautiful text formatting in terminal
 pytest          # tests
 sh              # for running bash commands in some tests
 pudb            # debugger
-pandas          # read and write csv files
+pandas>=1.4.1   # read and write csv files
+evalai>=1.3.14  # platform CLI for submission

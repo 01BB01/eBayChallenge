@@ -17,6 +17,7 @@ class eBayDataModule(LightningDataModule):
         pin_memory: bool = False,
         train_transforms: List[Any] = None,
         val_transforms: List[Any] = None,
+        query_key: str = "query_part1",
     ):
         super().__init__()
 
@@ -29,6 +30,8 @@ class eBayDataModule(LightningDataModule):
 
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
+        self.data_index: Optional[Dataset] = None
+        self.data_query: Optional[Dataset] = None
 
     @property
     def num_classes_1(self) -> int:
@@ -54,6 +57,11 @@ class eBayDataModule(LightningDataModule):
         if not self.data_train and not self.data_val:
             self.data_train = eBayDataset("train", self.train_transforms, self.hparams.data_dir)
             self.data_val = eBayDataset("val", self.val_transforms, self.hparams.data_dir)
+        if not self.data_index and not self.data_query:
+            self.data_index = eBayDataset("index", self.val_transforms, self.hparams.data_dir)
+            self.data_query = eBayDataset(
+                self.hparams.query_key, self.val_transforms, self.hparams.data_dir
+            )
 
     def train_dataloader(self):
         return DataLoader(
@@ -84,3 +92,20 @@ class eBayDataModule(LightningDataModule):
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
         )
+
+    def predict_dataloader(self):
+        index_loader = DataLoader(
+            dataset=self.data_index,
+            batch_size=self.hparams.batch_size,
+            num_workers=self.hparams.num_workers,
+            pin_memory=self.hparams.pin_memory,
+            shuffle=False,
+        )
+        query_loader = DataLoader(
+            dataset=self.data_query,
+            batch_size=self.hparams.batch_size,
+            num_workers=self.hparams.num_workers,
+            pin_memory=self.hparams.pin_memory,
+            shuffle=False,
+        )
+        return query_loader, index_loader
