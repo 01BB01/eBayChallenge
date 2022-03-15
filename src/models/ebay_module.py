@@ -157,24 +157,23 @@ class eBayCosFaceModule(eBayModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        output_dim = kwargs["output_dim"]
-        num_classes_1 = kwargs["num_classes_1"]
-        num_classes_2 = kwargs["num_classes_2"]
-        num_classes_3 = kwargs["num_classes_3"]
-        ce_margin = kwargs["ce_margin"]
-        ce_margin_type = kwargs["ce_margin_type"]  # cos / arc
-
-        self.linear_1 = CosSim(output_dim, num_classes_1)
-        self.linear_2 = CosSim(output_dim, num_classes_2)
-        self.linear_3 = CosSim(output_dim, num_classes_3)
+        self.linear_1 = CosSim(self.hparams.output_dim, self.hparams.num_classes_1)
+        self.linear_2 = CosSim(self.hparams.output_dim, self.hparams.num_classes_2)
+        self.linear_3 = CosSim(self.hparams.output_dim, self.hparams.num_classes_3)
 
         # loss function
-        s_1 = math.sqrt(2) * math.log(num_classes_1 - 1)
-        s_2 = math.sqrt(2) * math.log(num_classes_2 - 1)
-        s_3 = math.sqrt(2) * math.log(num_classes_3 - 1)
-        self.criterion_1 = MarginSoftmaxLoss(s_1, ce_margin, ce_margin_type)
-        self.criterion_2 = MarginSoftmaxLoss(s_2, ce_margin, ce_margin_type)
-        self.criterion_3 = MarginSoftmaxLoss(s_3, ce_margin, ce_margin_type)
+        s_1 = math.sqrt(2) * math.log(self.hparams.num_classes_1 - 1)
+        s_2 = math.sqrt(2) * math.log(self.hparams.num_classes_2 - 1)
+        s_3 = math.sqrt(2) * math.log(self.hparams.num_classes_3 - 1)
+        self.criterion_1 = MarginSoftmaxLoss(
+            s_1, self.hparams.ce_margin, self.hparams.ce_margin_type
+        )
+        self.criterion_2 = MarginSoftmaxLoss(
+            s_2, self.hparams.ce_margin, self.hparams.ce_margin_type
+        )
+        self.criterion_3 = MarginSoftmaxLoss(
+            s_3, self.hparams.ce_margin, self.hparams.ce_margin_type
+        )
 
 
 class eBayContrastiveModule(eBayModule):
