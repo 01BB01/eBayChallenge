@@ -1,3 +1,4 @@
+import math
 from typing import Any, List
 
 import torch
@@ -9,7 +10,8 @@ from torchmetrics.classification.accuracy import Accuracy
 
 from src.utils.modelling import get_configured_parameters
 
-from .components.losses import ContrastiveLoss
+from .components.cossim import CosSim
+from .components.losses import ContrastiveLoss, MarginSoftmaxLoss
 
 
 class eBayModule(LightningModule):
@@ -38,7 +40,9 @@ class eBayModule(LightningModule):
         self.linear_3 = nn.Linear(output_dim, num_classes_3, bias=False)
 
         # loss function
-        self.criterion = torch.nn.CrossEntropyLoss()
+        self.criterion_1 = torch.nn.CrossEntropyLoss()
+        self.criterion_2 = torch.nn.CrossEntropyLoss()
+        self.criterion_3 = torch.nn.CrossEntropyLoss()
 
         # use separate metric instance for train, val and test step
         # to ensure a proper reduction over the epoch
@@ -60,9 +64,9 @@ class eBayModule(LightningModule):
         logits_1 = self.linear_1(feats)
         logits_2 = self.linear_2(feats)
         logits_3 = self.linear_3(feats)
-        loss_1 = self.criterion(logits_1, y_1)
-        loss_2 = self.criterion(logits_2, y_2)
-        loss_3 = self.criterion(logits_3, y_3)
+        loss_1 = self.criterion_1(logits_1, y_1)
+        loss_2 = self.criterion_2(logits_2, y_2)
+        loss_3 = self.criterion_3(logits_3, y_3)
         preds = torch.argmax(logits_3, dim=1)
         return loss_1 + loss_2 + loss_3, preds, y_3
 
@@ -149,6 +153,30 @@ class eBayModule(LightningModule):
                 pg["lr"] = lr_scale * self.hparams.lr
 
 
+class eBayCosFaceModule(eBayModule):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        output_dim = kwargs["output_dim"]
+        num_classes_1 = kwargs["num_classes_1"]
+        num_classes_2 = kwargs["num_classes_2"]
+        num_classes_3 = kwargs["num_classes_3"]
+        ce_margin = kwargs["ce_margin"]
+        ce_margin_type = kwargs["ce_margin_type"]  # cos / arc
+
+        self.linear_1 = CosSim(output_dim, num_classes_1)
+        self.linear_2 = CosSim(output_dim, num_classes_2)
+        self.linear_3 = CosSim(output_dim, num_classes_3)
+
+        # loss function
+        s_1 = math.sqrt(2) * math.log(num_classes_1 - 1)
+        s_2 = math.sqrt(2) * math.log(num_classes_2 - 1)
+        s_3 = math.sqrt(2) * math.log(num_classes_3 - 1)
+        self.criterion_1 = MarginSoftmaxLoss(s_1, ce_margin, ce_margin_type)
+        self.criterion_2 = MarginSoftmaxLoss(s_2, ce_margin, ce_margin_type)
+        self.criterion_3 = MarginSoftmaxLoss(s_3, ce_margin, ce_margin_type)
+
+
 class eBayContrastiveModule(eBayModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -164,9 +192,9 @@ class eBayContrastiveModule(eBayModule):
         logits_1 = self.linear_1(feats)
         logits_2 = self.linear_2(feats)
         logits_3 = self.linear_3(feats)
-        loss_1 = self.criterion(logits_1, y_1)
-        loss_2 = self.criterion(logits_2, y_2)
-        loss_3 = self.criterion(logits_3, y_3)
+        loss_1 = self.criterion_1(logits_1, y_1)
+        loss_2 = self.criterion_2(logits_2, y_2)
+        loss_3 = self.criterion_3(logits_3, y_3)
         class_loss = loss_1 + loss_2 + loss_3
         preds = torch.argmax(logits_3, dim=1)
 
