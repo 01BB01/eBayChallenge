@@ -4,12 +4,16 @@ import torch.nn as nn
 import torchvision
 
 
-def get_vit(name, pretrained=True, **kwargs):
+def get_timm(name, pretrained=True, **kwargs):
     names = [
         "vit_base_patch16_224",
         "vit_tiny_patch16_224",
         "vit_small_patch16_224",
         "vit_large_patch16_224",
+        "swin_base_patch4_window12_384_in22k",
+        "swin_base_patch4_window7_224_in22k",
+        "swin_large_patch4_window12_384_in22k",
+        "swin_large_patch4_window7_224_in22k",
     ]
     assert name in names
     model = timm.create_model(
@@ -33,9 +37,9 @@ class TorchvisionImageEncoder(nn.Module):
     ):
         super().__init__()
 
-        self.is_vit = "vit" in name
-        if self.is_vit:
-            model = get_vit(name, pretrained=pretrained)
+        self.is_timm = "vit" in name or "swin" in name
+        if self.is_timm:
+            model = get_timm(name, pretrained=pretrained)
             self.model = model
             # remove ImageNet classifier
             self.model.reset_classifier(-1)
@@ -66,7 +70,7 @@ class TorchvisionImageEncoder(nn.Module):
         return pool
 
     def forward(self, x):
-        if self.is_vit:
+        if self.is_timm:
             out = self.model(x)  # (bs, dim)
         else:
             out = self.pool(self.model(x))

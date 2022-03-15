@@ -5,7 +5,7 @@
 
 defaults:
   - override /datamodule: ebay.yaml
-  - override /model: ebay.yaml
+  - override /model: three_classes.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
   - override /trainer: ddp.yaml

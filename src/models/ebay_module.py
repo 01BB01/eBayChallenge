@@ -7,6 +7,10 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torchmetrics import MaxMetric
 from torchmetrics.classification.accuracy import Accuracy
 
+from src.utils.modelling import get_configured_parameters
+
+from .components.losses import ContrastiveLoss
+
 
 class eBayModule(LightningModule):
     def __init__(
@@ -20,6 +24,7 @@ class eBayModule(LightningModule):
         num_classes_3: int = 1000,
         warmup_steps: int = -1,
         milestones: List[int] = None,
+        **kwargs
     ):
         super().__init__()
 
@@ -142,3 +147,84 @@ class eBayModule(LightningModule):
             lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams.lr
+
+
+class eBayContrastiveModule(eBayModule):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.text_net = kwargs["text_net"]
+        self.contrastive_loss = ContrastiveLoss()
+
+    def step(self, batch: Any):
+        x = batch["image"]
+        y_1 = batch["label_1"]
+        y_2 = batch["label_2"]
+        y_3 = batch["label_3"]
+        feats = self.forward(x)
+        logits_1 = self.linear_1(feats)
+        logits_2 = self.linear_2(feats)
+        logits_3 = self.linear_3(feats)
+        loss_1 = self.criterion(logits_1, y_1)
+        loss_2 = self.criterion(logits_2, y_2)
+        loss_3 = self.criterion(logits_3, y_3)
+        class_loss = loss_1 + loss_2 + loss_3
+        preds = torch.argmax(logits_3, dim=1)
+
+        text_feats = self.text_net(batch["text"])
+        contrastive_loss = self.contrastive_loss(feats, text_feats)
+        return class_loss, contrastive_loss, preds, y_3
+
+    def training_step(self, batch: Any, batch_idx: int):
+        class_loss, contrastive_loss, preds, targets = self.step(batch)
+
+        # log train metrics
+        acc = self.train_acc(preds, targets)
+        self.log("train/loss", class_loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log(
+            "train/contrastive_loss", contrastive_loss, on_step=True, on_epoch=True, prog_bar=False
+        )
+        self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
+
+        return {"loss": class_loss + contrastive_loss, "preds": preds, "targets": targets}
+
+    def validation_step(self, batch: Any, batch_idx: int):
+        loss, _, preds, targets = self.step(batch)
+
+        # log val metrics
+        acc = self.val_acc(preds, targets)
+        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
+        self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
+
+        return {"loss": loss, "preds": preds, "targets": targets}
+
+    def configure_optimizers(self):
+        """Choose what optimizers and learning-rate schedulers to use in your optimization.
+        Normally you'd need one. But in the case of GANs or similar you might have multiple.
+
+        See examples here:
+            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        """
+        net_params = get_configured_parameters(
+            self.net, base_lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
+        )
+        linear_1_params = get_configured_parameters(
+            self.linear_1, base_lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
+        )
+        linear_2_params = get_configured_parameters(
+            self.linear_2, base_lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
+        )
+        linear_3_params = get_configured_parameters(
+            self.linear_3, base_lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
+        )
+        text_net_params = get_configured_parameters(
+            self.text_net,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.lr_multiplier,
+        )
+        params = net_params + linear_1_params + linear_2_params + linear_3_params + text_net_params
+        optimizer = torch.optim.AdamW(params=params)
+        if self.hparams.milestones is not None:
+            lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
+            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
+        return {"optimizer": optimizer}
