@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class CosSim(nn.Module):
@@ -12,11 +13,8 @@ class CosSim(nn.Module):
         self.centroids = nn.Parameter(codebook.clone())
 
     def forward(self, x):
-        norms = torch.norm(x, p=2, dim=-1, keepdim=True)
-        nfeat = torch.div(x, norms)
-
-        norms_c = torch.norm(self.centroids, p=2, dim=-1, keepdim=True)
-        ncenters = torch.div(self.centroids, norms_c)
+        nfeat = F.normalize(x, p=2, dim=-1)
+        ncenters = F.normalize(self.centroids, p=2, dim=-1)
         logits = torch.matmul(nfeat, torch.transpose(ncenters, 0, 1))
 
         return logits
