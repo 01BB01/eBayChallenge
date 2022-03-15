@@ -41,3 +41,34 @@ class ContrastiveLoss(nn.Module):
         loss_2 = F.cross_entropy(logits_2, labels)
 
         return (loss_1 + loss_2) / 2
+
+
+class MarginSoftmaxLoss(nn.Module):
+    def __init__(self, s: float = 8, m: float = 0.2, m_type: str = "cos", **kwargs):
+        super(MarginSoftmaxLoss, self).__init__()
+        self.s = s
+        self.m = m
+        self.m_type = m_type
+
+    def compute_margin_logits(self, logits, labels):
+        if self.m_type == "cos":
+            y_onehot = torch.zeros_like(logits)
+            y_onehot.scatter_(1, torch.unsqueeze(labels, dim=-1), self.m)
+            margin_logits = self.s * (logits - y_onehot)
+        else:
+            y_onehot = torch.zeros_like(logits)
+            y_onehot.scatter_(1, torch.unsqueeze(labels, dim=-1), self.m)
+            arc_logits = torch.acos(logits.clamp(-0.99999, 0.99999))
+            logits = torch.cos(arc_logits + y_onehot)
+            margin_logits = self.s * logits
+
+        return margin_logits
+
+    def forward(self, logits, labels):
+        margin_logits = self.compute_margin_logits(logits, labels)
+        loss_ce = F.cross_entropy(margin_logits, labels)
+
+        return loss_ce
+
+    def extra_repr(self) -> str:
+        return "s={}, m={}, m_type:{}".format(self.s, self.m, self.m_type)
