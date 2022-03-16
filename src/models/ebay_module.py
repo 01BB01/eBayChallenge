@@ -1,6 +1,9 @@
 import math
+import os
 from typing import Any, List
 
+import hydra
+import numpy as np
 import torch
 import torch.nn as nn
 from pytorch_lightning import LightningModule
@@ -11,7 +14,7 @@ from torchmetrics.classification.accuracy import Accuracy
 from src.utils.modelling import get_configured_parameters
 
 from .components.cossim import CosSim
-from .components.losses import ContrastiveLoss, MarginSoftmaxLoss
+from .components.losses import ClassBalancedLoss, ContrastiveLoss, MarginSoftmaxLoss
 
 
 class eBayModule(LightningModule):
@@ -21,9 +24,6 @@ class eBayModule(LightningModule):
         lr: float = 0.001,
         weight_decay: float = 0.0005,
         output_dim: int = 2048,
-        num_classes_1: int = 16,
-        num_classes_2: int = 75,
-        num_classes_3: int = 1000,
         warmup_steps: int = -1,
         milestones: List[int] = None,
         **kwargs
@@ -35,9 +35,9 @@ class eBayModule(LightningModule):
         self.save_hyperparameters(logger=False)
 
         self.net = net
-        self.linear_1 = nn.Linear(output_dim, num_classes_1, bias=False)
-        self.linear_2 = nn.Linear(output_dim, num_classes_2, bias=False)
-        self.linear_3 = nn.Linear(output_dim, num_classes_3, bias=False)
+        self.linear_1 = nn.Linear(output_dim, 16, bias=False)
+        self.linear_2 = nn.Linear(output_dim, 75, bias=False)
+        self.linear_3 = nn.Linear(output_dim, 1000, bias=False)
 
         # loss function
         self.criterion_1 = torch.nn.CrossEntropyLoss()
@@ -157,14 +157,14 @@ class eBayCosFaceModule(eBayModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.linear_1 = CosSim(self.hparams.output_dim, self.hparams.num_classes_1)
-        self.linear_2 = CosSim(self.hparams.output_dim, self.hparams.num_classes_2)
-        self.linear_3 = CosSim(self.hparams.output_dim, self.hparams.num_classes_3)
+        self.linear_1 = CosSim(self.hparams.output_dim, 16)
+        self.linear_2 = CosSim(self.hparams.output_dim, 75)
+        self.linear_3 = CosSim(self.hparams.output_dim, 1000)
 
         # loss function
-        s_1 = math.sqrt(2) * math.log(self.hparams.num_classes_1 - 1)
-        s_2 = math.sqrt(2) * math.log(self.hparams.num_classes_2 - 1)
-        s_3 = math.sqrt(2) * math.log(self.hparams.num_classes_3 - 1)
+        s_1 = math.sqrt(2) * math.log(16 - 1)
+        s_2 = math.sqrt(2) * math.log(75 - 1)
+        s_3 = math.sqrt(2) * math.log(1000 - 1)
         self.criterion_1 = MarginSoftmaxLoss(
             s_1, self.hparams.ce_margin, self.hparams.ce_margin_type
         )
@@ -173,6 +173,23 @@ class eBayCosFaceModule(eBayModule):
         )
         self.criterion_3 = MarginSoftmaxLoss(
             s_3, self.hparams.ce_margin, self.hparams.ce_margin_type
+        )
+
+
+class eBayCBModule(eBayModule):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        cwd = hydra.utils.get_original_cwd()
+
+        self.criterion_1 = ClassBalancedLoss(
+            np.load(os.path.join(cwd, "src/models/class_1_nums.npy")), 16
+        )
+        self.criterion_2 = ClassBalancedLoss(
+            np.load(os.path.join(cwd, "src/models/class_2_nums.npy")), 75
+        )
+        self.criterion_3 = ClassBalancedLoss(
+            np.load(os.path.join(cwd, "src/models/class_3_nums.npy")), 1000
         )
 
 
