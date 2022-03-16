@@ -4,7 +4,7 @@
 defaults:
   - _self_
   - datamodule: ebay.yaml # choose the datamodule for evaluation
-  - model: ebay.yaml
+  - model: three_classes.yaml
   - callbacks: null
   - logger: null
   - trainer: default.yaml
@@ -21,6 +21,8 @@ original_work_dir: ${hydra:runtime.cwd}
 data_dir: ${original_work_dir}/data/eBay
 
 csv_save_dir: ${hydra:run.dir}
+
+similarity_metric: euclidean
 
 print_config: True
 
