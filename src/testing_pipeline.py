@@ -4,6 +4,7 @@ from typing import List
 import hydra
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from omegaconf import DictConfig
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer, seed_everything
 from pytorch_lightning.loggers import LightningLoggerBase
@@ -78,11 +79,16 @@ def test(config: DictConfig) -> None:
     for i in range(index_feats.shape[0] // chunk_size + 1):
         start = i * chunk_size
         end = start + chunk_size
-        dist = torch.cdist(query_feats, index_feats[start:end])  # q * 5000
+        if config.similarity_metric == "cosine":
+            query_feats = F.normalize(query_feats, p=2, dim=-1)
+            index_feats[start:end] = F.normalize(index_feats[start:end], p=2, dim=-1)
+            dist = query_feats @ index_feats[start:end].t()
+        else:
+            dist = -torch.cdist(query_feats, index_feats[start:end])  # q * 5000
         dist_matrix.append(dist)
 
     dist_matrix = torch.cat(dist_matrix, dim=1)  # q * i
-    _, pred_indices = torch.topk(-dist_matrix, k=10, dim=1, largest=True, sorted=True)
+    _, pred_indices = torch.topk(dist_matrix, k=10, dim=1, largest=True, sorted=True)
 
     log.info("Writing predictions csv!")
     df = pd.DataFrame(zip(query_uuid, pred_indices.cpu().numpy()))
