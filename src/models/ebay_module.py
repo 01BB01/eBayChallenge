@@ -26,7 +26,8 @@ class eBayModule(LightningModule):
         output_dim: int = 2048,
         warmup_steps: int = -1,
         milestones: List[int] = None,
-        label_smoothing: int = 0.0,
+        label_smoothing: float = 0.0,
+        classifier_lr_multiplier: float = 1.0,
         **kwargs
     ):
         super().__init__()
@@ -118,6 +119,32 @@ class eBayModule(LightningModule):
         self.train_acc.reset()
         self.val_acc.reset()
 
+    def get_params(self):
+        net_params = get_configured_parameters(
+            self.net,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+        )
+        linear_1_params = get_configured_parameters(
+            self.linear_1,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.classifier_lr_multiplier,
+        )
+        linear_2_params = get_configured_parameters(
+            self.linear_2,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.classifier_lr_multiplier,
+        )
+        linear_3_params = get_configured_parameters(
+            self.linear_3,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.classifier_lr_multiplier,
+        )
+        return net_params + linear_1_params + linear_2_params + linear_3_params
+
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
         Normally you'd need one. But in the case of GANs or similar you might have multiple.
@@ -125,9 +152,7 @@ class eBayModule(LightningModule):
         See examples here:
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = torch.optim.Adam(
-            params=self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
-        )
+        optimizer = torch.optim.Adam(params=self.get_params())
         if self.hparams.milestones is not None:
             lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
@@ -243,32 +268,13 @@ class eBayContrastiveModule(eBayModule):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def configure_optimizers(self):
-        """Choose what optimizers and learning-rate schedulers to use in your optimization.
-        Normally you'd need one. But in the case of GANs or similar you might have multiple.
-
-        See examples here:
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        """
-        net_params = get_configured_parameters(
-            self.net, base_lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
-        )
-        linear_1_params = get_configured_parameters(
-            self.linear_1, base_lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
-        )
-        linear_2_params = get_configured_parameters(
-            self.linear_2, base_lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
-        )
-        linear_3_params = get_configured_parameters(
-            self.linear_3, base_lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
-        )
         text_net_params = get_configured_parameters(
             self.text_net,
             base_lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay,
-            lr_multiplier=self.hparams.lr_multiplier,
+            lr_multiplier=self.hparams.text_lr_multiplier,
         )
-        params = net_params + linear_1_params + linear_2_params + linear_3_params + text_net_params
-        optimizer = torch.optim.AdamW(params=params)
+        optimizer = torch.optim.AdamW(params=text_net_params + self.get_params())
         if self.hparams.milestones is not None:
             lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
