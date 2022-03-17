@@ -25,9 +25,6 @@ def get_timm(name, pretrained=True, **kwargs):
     model = timm.create_model(
         name,
         pretrained=pretrained,
-        drop_rate=kwargs.get("drop_rate", 0.0),
-        attn_drop_rate=kwargs.get("attn_drop_rate", 0.0),
-        drop_path_rate=kwargs.get("drop_path_rate", 0.0),
     )
     return model
 
