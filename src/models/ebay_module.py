@@ -28,6 +28,7 @@ class eBayModule(LightningModule):
         milestones: List[int] = None,
         label_smoothing: float = 0.0,
         classifier_lr_multiplier: float = 1.0,
+        optimizer: str = "adam",
         **kwargs
     ):
         super().__init__()
@@ -152,7 +153,10 @@ class eBayModule(LightningModule):
         See examples here:
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = torch.optim.Adam(params=self.get_params())
+        if self.hparams.optimizer == "adam":
+            optimizer = torch.optim.Adam(params=self.get_params())
+        elif self.hparams.optimizer == "sgd":
+            optimizer = torch.optim.SGD(params=self.get_params(), momentum=0.9)
         if self.hparams.milestones is not None:
             lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
