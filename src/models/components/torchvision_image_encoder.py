@@ -14,6 +14,12 @@ def get_timm(name, pretrained=True, **kwargs):
         "swin_base_patch4_window7_224_in22k",
         "swin_large_patch4_window12_384_in22k",
         "swin_large_patch4_window7_224_in22k",
+        "convnext_base_in22ft1k",
+        "convnext_large_in22ft1k",
+        "convnext_xlarge_in22ft1k",
+        "convnext_base_384_in22ft1k",
+        "convnext_large_384_in22ft1k",
+        "convnext_xlarge_384_in22ft1k",
     ]
     assert name in names
     model = timm.create_model(
@@ -37,7 +43,7 @@ class TorchvisionImageEncoder(nn.Module):
     ):
         super().__init__()
 
-        self.is_timm = "vit" in name or "swin" in name
+        self.is_timm = "vit" in name or "swin" in name or "convnext" in name
         if self.is_timm:
             model = get_timm(name, pretrained=pretrained)
             self.model = model
