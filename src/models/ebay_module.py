@@ -26,6 +26,7 @@ class eBayModule(LightningModule):
         output_dim: int = 2048,
         warmup_steps: int = -1,
         milestones: List[int] = None,
+        label_smoothing: int = 0.0,
         **kwargs
     ):
         super().__init__()
@@ -40,9 +41,9 @@ class eBayModule(LightningModule):
         self.linear_3 = nn.Linear(output_dim, 1000, bias=False)
 
         # loss function
-        self.criterion_1 = torch.nn.CrossEntropyLoss()
-        self.criterion_2 = torch.nn.CrossEntropyLoss()
-        self.criterion_3 = torch.nn.CrossEntropyLoss()
+        self.criterion_1 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.criterion_2 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.criterion_3 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
         # use separate metric instance for train, val and test step
         # to ensure a proper reduction over the epoch
