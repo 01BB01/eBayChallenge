@@ -5,6 +5,7 @@ batch_size: 64
 num_workers: 8
 pin_memory: True
 train_transforms:
+  - _target_: src.datamodules.components.transforms.DynamicPad
   - _target_: torchvision.transforms.Resize
     size: [224, 224]
   - _target_: torchvision.transforms.RandomHorizontalFlip
@@ -13,6 +14,7 @@ train_transforms:
     mean: [0.46777044, 0.44531429, 0.40661017]
     std: [0.12221994, 0.12145835, 0.14380469]
 val_transforms:
+  - _target_: src.datamodules.components.transforms.DynamicPad
   - _target_: torchvision.transforms.Resize
     size: [224, 224]
   - _target_: torchvision.transforms.ToTensor
