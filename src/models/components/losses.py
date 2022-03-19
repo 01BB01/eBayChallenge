@@ -153,3 +153,58 @@ class ClassBalancedLoss(nn.Module):
             pred = logits.softmax(dim=1)
             cb_loss = F.binary_cross_entropy(input=pred, target=labels_one_hot, weight=weights)
         return cb_loss
+
+
+class SupervisedContrastiveLoss(nn.Module):
+    """
+    Implementation of the loss described in the paper Supervised Contrastive Learning :
+    https://arxiv.org/abs/2004.11362
+    """
+
+    def __init__(self, temperature: float = 0.07, learnable: bool = True):
+        super().__init__()
+        if learnable:
+            self.temperature = nn.Parameter(torch.FloatTensor((temperature,)))
+        else:
+            self.temperature = temperature
+
+    def forward(self, projections, targets):
+        device = projections.device
+        per_gpu_batch_size = projections.size(0)
+        projections = F.normalize(projections, p=2, dim=-1)
+
+        all_projections = gather_tensor_along_batch_with_backward(projections)  # GN
+        all_targets = gather_tensor_along_batch_with_backward(targets)
+
+        dot_product_tempered = (
+            torch.mm(projections, all_projections.T) / self.temperature
+        )  # N x GN
+        # Minus max for numerical stability with exponential.
+        # Same done in cross entropy. Epsilon added to avoid log(0)
+        exp_dot_tempered = torch.exp(
+            dot_product_tempered - torch.max(dot_product_tempered, dim=1, keepdim=True)[0]
+        )
+        exp_dot_tempered += 1e-8
+        # N x GN
+
+        mask_similar_class = (
+            targets.unsqueeze(-1).eq(all_targets.unsqueeze(0)).to(device).float()
+        )  # N x GN
+        mask_anchor_out = 1 - torch.eye(all_projections.size(0)).to(device)  # GN x GN
+        rank = get_rank()
+        start = rank * per_gpu_batch_size
+        end = start + per_gpu_batch_size
+        mask_anchor_out = mask_anchor_out[start:end]  # N x GN
+
+        mask_combined = mask_similar_class * mask_anchor_out
+        cardinality_per_samples = torch.sum(mask_combined, dim=1)
+
+        log_prob = -torch.log(
+            exp_dot_tempered / (torch.sum(exp_dot_tempered * mask_anchor_out, dim=1, keepdim=True))
+        )
+        supervised_contrastive_loss_per_sample = (
+            torch.sum(log_prob * mask_combined, dim=1) / cardinality_per_samples
+        )
+        supervised_contrastive_loss = torch.mean(supervised_contrastive_loss_per_sample)
+
+        return supervised_contrastive_loss

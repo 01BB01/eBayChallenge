@@ -17,6 +17,7 @@ class eBayDataModule(LightningDataModule):
         pin_memory: bool = False,
         train_transforms: List[Any] = None,
         val_transforms: List[Any] = None,
+        aug_transforms: List[Any] = None,
         query_key: str = "query_part1",
     ):
         super().__init__()
@@ -27,6 +28,10 @@ class eBayDataModule(LightningDataModule):
         # data transformations
         self.train_transforms = transforms.Compose(train_transforms)
         self.val_transforms = transforms.Compose(val_transforms)
+        if aug_transforms is not None:
+            self.aug_transforms = transforms.Compose(aug_transforms)
+        else:
+            self.aug_transforms = None
 
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
@@ -55,7 +60,9 @@ class eBayDataModule(LightningDataModule):
 
         # load datasets only if they're not loaded already
         if not self.data_train and not self.data_val:
-            self.data_train = eBayDataset("train", self.train_transforms, self.hparams.data_dir)
+            self.data_train = eBayDataset(
+                "train", self.train_transforms, self.hparams.data_dir, self.aug_transforms
+            )
             self.data_val = eBayDataset("val", self.val_transforms, self.hparams.data_dir)
         if not self.data_index and not self.data_query:
             self.data_index = eBayDataset("index", self.val_transforms, self.hparams.data_dir)
