@@ -14,7 +14,7 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "vit_strong_baseline"
+name: "convnext_strong_baseline"
 
 seed: 42
 
@@ -28,16 +28,18 @@ model:
   warmup_steps: 26005
   milestones: [20, 35]
   net:
-    name: vit_base_patch16_224
-  output_dim: 768
+    name: convnext_base_in22ft1k
+  output_dim: 1024
   label_smoothing: 0.1
+  mixup_alpha: 1.0
+  cutmix_alpha: 1.0
 
 datamodule:
-  batch_size: 128
+  batch_size: 64
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
       size: [224, 224]
-      scale: [0.75, 1.0]
+      scale: [0.5, 1.0]
     - _target_: torchvision.transforms.RandomHorizontalFlip
     - _target_: torchvision.transforms.TrivialAugmentWide
     - _target_: torchvision.transforms.ToTensor
