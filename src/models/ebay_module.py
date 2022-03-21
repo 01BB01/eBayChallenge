@@ -10,7 +10,9 @@ from pytorch_lightning import LightningModule
 from torch.optim.lr_scheduler import MultiStepLR
 from torchmetrics import MaxMetric
 from torchmetrics.classification.accuracy import Accuracy
+from torchvision.transforms import RandomChoice
 
+from src.datamodules.components.transforms import RandomCutmix, RandomMixup
 from src.utils.modelling import get_configured_parameters
 
 from .components.cossim import CosSim
@@ -34,6 +36,8 @@ class eBayModule(LightningModule):
         label_smoothing: float = 0.0,
         classifier_lr_multiplier: float = 1.0,
         optimizer: str = "adam",
+        mixup_alpha: float = 0.0,
+        cutmix_alpha: float = 0.0,
         **kwargs
     ):
         super().__init__()
@@ -52,6 +56,17 @@ class eBayModule(LightningModule):
         self.criterion_2 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
         self.criterion_3 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
+        # mixup and cutmix
+        mixup_transforms = []
+        if mixup_alpha > 0.0:
+            mixup_transforms.append(RandomMixup(1000, p=1.0, alpha=mixup_alpha))
+        if cutmix_alpha > 0.0:
+            mixup_transforms.append(RandomCutmix(1000, p=1.0, alpha=cutmix_alpha))
+        if mixup_transforms:
+            self.mixup_cutmix = RandomChoice(mixup_transforms)
+        else:
+            self.mixup_cutmix = None
+
         # use separate metric instance for train, val and test step
         # to ensure a proper reduction over the epoch
         self.train_acc = Accuracy()
@@ -68,13 +83,19 @@ class eBayModule(LightningModule):
         y_1 = batch["label_1"]
         y_2 = batch["label_2"]
         y_3 = batch["label_3"]
+        if self.mixup_cutmix is not None:
+            x, y_3_mix = self.mixup_cutmix(x, y_3)
+
         feats = self.forward(x)
         logits_1 = self.linear_1(feats)
         logits_2 = self.linear_2(feats)
         logits_3 = self.linear_3(feats)
         loss_1 = self.criterion_1(logits_1, y_1)
         loss_2 = self.criterion_2(logits_2, y_2)
-        loss_3 = self.criterion_3(logits_3, y_3)
+        if self.mixup_cutmix is not None:
+            loss_3 = self.criterion_3(logits_3, y_3_mix)
+        else:
+            loss_3 = self.criterion_3(logits_3, y_3)
         preds = torch.argmax(logits_3, dim=1)
         return loss_1 + loss_2 + loss_3, preds, y_3
 

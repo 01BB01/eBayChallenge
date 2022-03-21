@@ -184,7 +184,7 @@ class SupervisedContrastiveLoss(nn.Module):
         exp_dot_tempered = torch.exp(
             dot_product_tempered - torch.max(dot_product_tempered, dim=1, keepdim=True)[0]
         )
-        exp_dot_tempered += 1e-8
+        exp_dot_tempered = exp_dot_tempered + 1e-8
         # N x GN
 
         mask_similar_class = (
