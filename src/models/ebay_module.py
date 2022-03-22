@@ -253,6 +253,10 @@ class eBayContrastiveModule(eBayModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.text_net = kwargs["text_net"]
+        if kwargs["output_dim"] != self.text_net.hidden_size:
+            self.linear_text = nn.Linear(kwargs["output_dim"], self.text_net.hidden_size)
+        else:
+            self.linear_text = nn.Identity()
         self.contrastive_loss = ContrastiveLoss()
 
     def step(self, batch: Any):
@@ -271,7 +275,7 @@ class eBayContrastiveModule(eBayModule):
         preds = torch.argmax(logits_3, dim=1)
 
         text_feats = self.text_net(batch["text"])
-        contrastive_loss = self.contrastive_loss(feats, text_feats)
+        contrastive_loss = self.contrastive_loss(self.linear_text(feats), text_feats)
         return class_loss, contrastive_loss, preds, y_3
 
     def training_step(self, batch: Any, batch_idx: int):

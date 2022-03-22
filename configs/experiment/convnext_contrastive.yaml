@@ -1,0 +1,54 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=baseline
+
+defaults:
+  - override /datamodule: ebay.yaml
+  - override /model: contrastive.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /trainer: ddp.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "convnext_contrastive"
+
+seed: 42
+
+trainer:
+  min_epochs: 40
+  max_epochs: 40
+
+model:
+  lr: 0.0001
+  weight_decay: 0.0001
+  warmup_steps: 26005
+  milestones: [20, 35]
+  net:
+    name: convnext_base_in22ft1k
+  text_net:
+    name: roberta-base
+  output_dim: 1024
+  label_smoothing: 0.1
+
+datamodule:
+  batch_size: 64
+  train_transforms:
+    - _target_: torchvision.transforms.RandomResizedCrop
+      size: [224, 224]
+      scale: [0.5, 1.0]
+    - _target_: torchvision.transforms.RandomHorizontalFlip
+    - _target_: torchvision.transforms.TrivialAugmentWide
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.46777044, 0.44531429, 0.40661017]
+      std: [0.12221994, 0.12145835, 0.14380469]
+    - _target_: torchvision.transforms.RandomErasing
+      p: 0.1
+
+logger:
+  wandb:
+    tags: ["ebay", "${name}"]
