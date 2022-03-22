@@ -253,8 +253,8 @@ class eBayContrastiveModule(eBayModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.text_net = kwargs["text_net"]
-        if kwargs["output_dim"] != self.text_net.hidden_size:
-            self.linear_text = nn.Linear(kwargs["output_dim"], self.text_net.hidden_size)
+        if kwargs["output_dim"] != 768:
+            self.linear_text = nn.Linear(kwargs["output_dim"], 768)
         else:
             self.linear_text = nn.Identity()
         self.contrastive_loss = ContrastiveLoss()
@@ -308,7 +308,15 @@ class eBayContrastiveModule(eBayModule):
             weight_decay=self.hparams.weight_decay,
             lr_multiplier=self.hparams.text_lr_multiplier,
         )
-        optimizer = torch.optim.AdamW(params=text_net_params + self.get_params())
+        linear_text_params = get_configured_parameters(
+            self.linear_text,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.classifier_lr_multiplier,
+        )
+        optimizer = torch.optim.AdamW(
+            params=text_net_params + linear_text_params + self.get_params()
+        )
         if self.hparams.milestones is not None:
             lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}

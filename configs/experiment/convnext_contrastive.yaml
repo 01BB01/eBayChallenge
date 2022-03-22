@@ -33,9 +33,10 @@ model:
     name: roberta-base
   output_dim: 1024
   label_smoothing: 0.1
+  classifier_lr_multiplier: 2.0
 
 datamodule:
-  batch_size: 64
+  batch_size: 56
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
       size: [224, 224]
