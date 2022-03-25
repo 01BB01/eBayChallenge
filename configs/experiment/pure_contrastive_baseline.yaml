@@ -33,11 +33,11 @@ model:
 datamodule:
   batch_size: 64
 
-model_checkpoint:
-  monitor: "val/mean_rk"
-
-early_stopping:
-  monitor: "val/mean_rk"
+callbacks:
+  model_checkpoint:
+    monitor: "val/mean_rk"
+  early_stopping:
+    monitor: "val/mean_rk"
 
 logger:
   wandb:
