@@ -14,7 +14,7 @@ from torchmetrics.classification.accuracy import Accuracy
 from torchvision.transforms import RandomChoice
 
 from src.datamodules.components.transforms import RandomCutmix, RandomMixup
-from src.utils.distributed import gather_tensor
+from src.utils.distributed import gather_tensor_along_batch
 from src.utils.modelling import get_configured_parameters
 
 from .components.cossim import CosSim
@@ -463,8 +463,8 @@ class eBayPureContrastiveModule(LightningModule):
 
     def validation_epoch_end(self, outputs: List[Any]):
         feats, text_feats = self.gather_filed(outputs)
-        feats = gather_tensor(feats)
-        text_feats = gather_tensor(text_feats)
+        feats = gather_tensor_along_batch(feats)
+        text_feats = gather_tensor_along_batch(text_feats)
         ids = torch.arange(len(feats), dtype=torch.long, device=feats.device)
         i2t_r1, i2t_r5, i2t_r10 = self.get_rk(ids, ids, feats, text_feats)
         t2i_r1, t2i_r5, t2i_r10 = self.get_rk(ids, ids, text_feats, feats)
