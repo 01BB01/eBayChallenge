@@ -45,8 +45,8 @@ datamodule:
     - _target_: torchvision.transforms.TrivialAugmentWide
     - _target_: torchvision.transforms.ToTensor
     - _target_: torchvision.transforms.Normalize
-      mean: [0.46777044, 0.44531429, 0.40661017]
-      std: [0.12221994, 0.12145835, 0.14380469]
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
     - _target_: torchvision.transforms.RandomErasing
       p: 0.1
 

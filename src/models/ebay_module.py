@@ -403,7 +403,7 @@ class eBayPureContrastiveModule(LightningModule):
         self.rk_best = MaxMetric()
 
     def forward(self, x: torch.Tensor):
-        return self.net(x)
+        return self.linear_text(self.net(x))
 
     def training_step(self, batch: Any, batch_idx: int):
         x = batch["image"]
@@ -425,7 +425,7 @@ class eBayPureContrastiveModule(LightningModule):
     def validation_step(self, batch: Any, batch_idx: int):
         x = batch["image"]
         text = batch["text"]
-        feats = self.linear_text(self.net(x))
+        feats = self.forward(x)
         text_feats = self.text_net(text)
         return {"feats": feats, "text_feats": text_feats}
 
