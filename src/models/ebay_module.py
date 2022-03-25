@@ -6,6 +6,7 @@ import hydra
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from pytorch_lightning import LightningModule
 from torch.optim.lr_scheduler import MultiStepLR
 from torchmetrics import MaxMetric
@@ -13,6 +14,7 @@ from torchmetrics.classification.accuracy import Accuracy
 from torchvision.transforms import RandomChoice
 
 from src.datamodules.components.transforms import RandomCutmix, RandomMixup
+from src.utils.distributed import gather_tensor
 from src.utils.modelling import get_configured_parameters
 
 from .components.cossim import CosSim
@@ -370,3 +372,175 @@ class eBaySupConModule(eBayModule):
         self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
 
         return {"loss": loss, "preds": preds, "targets": targets}
+
+
+class eBayPureContrastiveModule(LightningModule):
+    def __init__(
+        self,
+        net: torch.nn.Module,
+        text_net: torch.nn.Module,
+        lr: float = 0.001,
+        weight_decay: float = 0.0005,
+        output_dim: int = 2048,
+        warmup_steps: int = -1,
+        milestones: List[int] = None,
+        classifier_lr_multiplier: float = 1.0,
+        **kwargs
+    ):
+        super().__init__()
+
+        # this line allows to access init params with 'self.hparams' attribute
+        # it also ensures init params will be stored in ckpt
+        self.save_hyperparameters(logger=False)
+
+        self.net = net
+        self.text_net = text_net
+        if output_dim != 768:
+            self.linear_text = nn.Linear(output_dim, 768)
+        else:
+            self.linear_text = nn.Identity()
+        self.contrastive_loss = ContrastiveLoss()
+        self.rk_best = MaxMetric()
+
+    def forward(self, x: torch.Tensor):
+        return self.net(x)
+
+    def training_step(self, batch: Any, batch_idx: int):
+        x = batch["image"]
+        text = batch["text"]
+        feats = self.net(x)
+        text_feats = self.text_net(text)
+        contrastive_loss = self.contrastive_loss(self.linear_text(feats), text_feats)
+
+        self.log(
+            "train/contrastive_loss", contrastive_loss, on_step=True, on_epoch=True, prog_bar=False
+        )
+
+        return {"loss": contrastive_loss}
+
+    def training_epoch_end(self, outputs: List[Any]):
+        # `outputs` is a list of dicts returned from `training_step()`
+        pass
+
+    def validation_step(self, batch: Any, batch_idx: int):
+        x = batch["image"]
+        text = batch["text"]
+        feats = self.linear_text(self.net(x))
+        text_feats = self.text_net(text)
+        return {"feats": feats, "text_feats": text_feats}
+
+    @staticmethod
+    def gather_filed(predictions):
+        feats = []
+        text_feats = []
+        for pred in predictions:
+            feats.extend(pred["feats"])
+            text_feats.extend(pred["text_feats"])
+        return torch.stack(feats), torch.stack(text_feats)
+
+    @staticmethod
+    def get_rk(
+        q_ids: torch.Tensor,
+        g_ids: torch.Tensor,
+        q_embeddings: torch.Tensor,
+        g_embeddings: torch.Tensor,
+        k: torch.Tensor = torch.tensor([1, 5, 10], dtype=torch.long),
+    ):
+        # acclerate sort with topk
+        q_embeddings = F.normalize(q_embeddings, p=2, dim=-1)
+        g_embeddings = F.normalize(g_embeddings, p=2, dim=-1)
+        _, indices = torch.topk(
+            q_embeddings @ g_embeddings.t(), k=max(k), dim=1, largest=True, sorted=True
+        )  # q * k
+        pred_labels = g_ids[indices]  # q * k
+        matches = pred_labels.eq(q_ids.view(-1, 1))  # q * k
+
+        all_cmc = matches[:, : max(k)].cumsum(1)
+        all_cmc[all_cmc > 1] = 1
+        all_cmc = all_cmc.float().mean(0)
+        ratk = all_cmc[k - 1]
+        return ratk
+
+    def validation_epoch_end(self, outputs: List[Any]):
+        feats, text_feats = self.gather_filed(outputs)
+        feats = gather_tensor(feats)
+        text_feats = gather_tensor(text_feats)
+        ids = torch.arange(len(feats), dtype=torch.long, device=feats.device)
+        i2t_r1, i2t_r5, i2t_r10 = self.get_rk(ids, ids, feats, text_feats)
+        t2i_r1, t2i_r5, t2i_r10 = self.get_rk(ids, ids, text_feats, feats)
+        mean_rk = (i2t_r1 + i2t_r5 + i2t_r10 + t2i_r1 + t2i_r5 + t2i_r10) / 6
+        self.rk_best.update(mean_rk)
+        self.log("val/i2t_r1", i2t_r1, on_epoch=True, prog_bar=True)
+        self.log("val/i2t_r5", i2t_r5, on_epoch=True, prog_bar=True)
+        self.log("val/i2t_r10", i2t_r10, on_epoch=True, prog_bar=True)
+        self.log("val/t2i_r1", t2i_r1, on_epoch=True, prog_bar=True)
+        self.log("val/t2i_r5", t2i_r5, on_epoch=True, prog_bar=True)
+        self.log("val/t2i_r10", t2i_r10, on_epoch=True, prog_bar=True)
+        self.log("val/mean_rk", mean_rk, on_epoch=True, prog_bar=True)
+        self.log("val/rk_best", self.rk_best.compute(), on_epoch=True, prog_bar=True)
+
+    def test_step(self, batch: Any, batch_idx: int):
+        pass
+
+    def test_epoch_end(self, outputs: List[Any]):
+        pass
+
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int):
+        feats = self.forward(batch["image"])
+        return {"feats": feats, "uuid": batch["uuid"]}
+
+    def on_epoch_end(self):
+        pass
+
+    def get_params(self):
+        net_params = get_configured_parameters(
+            self.net,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+        )
+        text_net_params = get_configured_parameters(
+            self.text_net,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.text_lr_multiplier,
+        )
+        linear_text_params = get_configured_parameters(
+            self.linear_text,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.classifier_lr_multiplier,
+        )
+        return net_params + text_net_params + linear_text_params
+
+    def configure_optimizers(self):
+        """Choose what optimizers and learning-rate schedulers to use in your optimization.
+        Normally you'd need one. But in the case of GANs or similar you might have multiple.
+
+        See examples here:
+            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        """
+        optimizer = torch.optim.AdamW(params=self.get_params())
+        if self.hparams.milestones is not None:
+            lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
+            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
+        return {"optimizer": optimizer}
+
+    def optimizer_step(
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_idx,
+        optimizer_closure,
+        on_tpu,
+        using_native_amp,
+        using_lbfgs,
+    ):
+        # update params
+        optimizer.step(closure=optimizer_closure)
+
+        # manually warm up lr without a scheduler
+        if self.trainer.global_step < self.hparams.warmup_steps:
+            lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_scale * self.hparams.lr
