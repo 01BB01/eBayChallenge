@@ -1,0 +1,47 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=baseline
+
+defaults:
+  - override /datamodule: ebay.yaml
+  - override /model: pure_contrastive.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /trainer: ddp.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "pure_contrastive_convnext"
+
+seed: 42
+
+trainer:
+  min_epochs: 40
+  max_epochs: 40
+
+model:
+  lr: 0.0001
+  weight_decay: 0.0001
+  warmup_steps: 26005
+  milestones: [20, 35]
+  net:
+    name: convnext_base_in22ft1k
+  text_net:
+    name: roberta-base
+  output_dim: 1024
+
+datamodule:
+  batch_size: 64
+
+callbacks:
+  model_checkpoint:
+    monitor: "val/mean_rk"
+  early_stopping:
+    monitor: "val/mean_rk"
+
+logger:
+  wandb:
+    tags: ["ebay", "${name}"]
