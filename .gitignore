@@ -146,3 +146,6 @@ logs/
 wandb/
 .env
 .autoenv
+
+run_bash.sh
+*.submit_file
