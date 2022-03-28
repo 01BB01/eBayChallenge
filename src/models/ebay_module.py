@@ -325,55 +325,6 @@ class eBayContrastiveModule(eBayModule):
         return {"optimizer": optimizer}
 
 
-class eBaySupConModule(eBayModule):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.supcon_loss = SupervisedContrastiveLoss()
-
-    def step(self, batch: Any):
-        x = batch["image"]
-        y_1 = batch["label_1"]
-        y_2 = batch["label_2"]
-        y_3 = batch["label_3"]
-        feats = self.forward(x)
-        logits_1 = self.linear_1(feats)
-        logits_2 = self.linear_2(feats)
-        logits_3 = self.linear_3(feats)
-        loss_1 = self.criterion_1(logits_1, y_1)
-        loss_2 = self.criterion_2(logits_2, y_2)
-        loss_3 = self.criterion_3(logits_3, y_3)
-        class_loss = loss_1 + loss_2 + loss_3
-        preds = torch.argmax(logits_3, dim=1)
-
-        if "aug_image" in batch:
-            aug_feats = self.forward(batch["aug_image"])
-            supcon_loss = self.supcon_loss(torch.cat([feats, aug_feats], dim=0), y_3.repeat(2))
-        else:
-            supcon_loss = 0.0
-        return class_loss, supcon_loss, preds, y_3
-
-    def training_step(self, batch: Any, batch_idx: int):
-        class_loss, supcon_loss, preds, targets = self.step(batch)
-
-        # log train metrics
-        acc = self.train_acc(preds, targets)
-        self.log("train/loss", class_loss, on_step=True, on_epoch=True, prog_bar=False)
-        self.log("train/supcon_loss", supcon_loss, on_step=True, on_epoch=True, prog_bar=False)
-        self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
-
-        return {"loss": class_loss + supcon_loss, "preds": preds, "targets": targets}
-
-    def validation_step(self, batch: Any, batch_idx: int):
-        loss, _, preds, targets = self.step(batch)
-
-        # log val metrics
-        acc = self.val_acc(preds, targets)
-        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
-        self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        return {"loss": loss, "preds": preds, "targets": targets}
-
-
 class eBayPureContrastiveModule(LightningModule):
     def __init__(
         self,
@@ -520,6 +471,106 @@ class eBayPureContrastiveModule(LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
         optimizer = torch.optim.AdamW(params=self.get_params())
+        if self.hparams.milestones is not None:
+            lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
+            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
+        return {"optimizer": optimizer}
+
+    def optimizer_step(
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_idx,
+        optimizer_closure,
+        on_tpu,
+        using_native_amp,
+        using_lbfgs,
+    ):
+        # update params
+        optimizer.step(closure=optimizer_closure)
+
+        # manually warm up lr without a scheduler
+        if self.trainer.global_step < self.hparams.warmup_steps:
+            lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_scale * self.hparams.lr
+
+
+class eBaySupConModule(LightningModule):
+    def __init__(
+        self,
+        net: torch.nn.Module,
+        lr: float = 0.001,
+        weight_decay: float = 0.0005,
+        output_dim: int = 2048,
+        warmup_steps: int = -1,
+        milestones: List[int] = None,
+        **kwargs
+    ):
+        super().__init__()
+
+        # this line allows to access init params with 'self.hparams' attribute
+        # it also ensures init params will be stored in ckpt
+        self.save_hyperparameters(logger=False)
+
+        self.net = net
+        self.criterion = SupervisedContrastiveLoss()
+
+    def forward(self, x: torch.Tensor):
+        return self.net(x)
+
+    def training_step(self, batch: Any, batch_idx: int):
+        image = batch["image"]
+        pos_image = batch["pos_image"]
+        ids = batch["id"]
+        feats = self.net(image)
+        pos_feats = self.net(pos_image)
+        supcon_loss = self.criterion(torch.cat([feats, pos_feats], dim=0), ids.repeat(2))
+
+        self.log("train/supcon_loss", supcon_loss, on_step=True, on_epoch=True, prog_bar=False)
+
+        return {"loss": supcon_loss}
+
+    def training_epoch_end(self, outputs: List[Any]):
+        # `outputs` is a list of dicts returned from `training_step()`
+        pass
+
+    def validation_step(self, batch: Any, batch_idx: int):
+        pass
+
+    def validation_epoch_end(self, outputs: List[Any]):
+        pass
+
+    def test_step(self, batch: Any, batch_idx: int):
+        pass
+
+    def test_epoch_end(self, outputs: List[Any]):
+        pass
+
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int):
+        feats = self.forward(batch["image"])
+        return {"feats": feats, "uuid": batch["uuid"]}
+
+    def on_epoch_end(self):
+        pass
+
+    def get_params(self):
+        net_params = get_configured_parameters(
+            self.net,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+        )
+        return net_params
+
+    def configure_optimizers(self):
+        """Choose what optimizers and learning-rate schedulers to use in your optimization.
+        Normally you'd need one. But in the case of GANs or similar you might have multiple.
+
+        See examples here:
+            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        """
+        optimizer = torch.optim.Adam(params=self.get_params())
         if self.hparams.milestones is not None:
             lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
