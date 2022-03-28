@@ -23,9 +23,9 @@ trainer:
   max_epochs: 40
 
 model:
-  lr: 0.0002
+  lr: 0.0001
   weight_decay: 0.0001
-  text_lr_multiplier: 0.05
+  text_lr_multiplier: 0.1
   warmup_steps: 26005
   milestones: [20, 35]
   net:
@@ -51,8 +51,6 @@ datamodule:
 
 callbacks:
   model_checkpoint:
-    monitor: "val/mean_rk"
-  early_stopping:
     monitor: "val/mean_rk"
 
 logger:

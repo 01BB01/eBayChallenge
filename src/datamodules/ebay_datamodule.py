@@ -5,7 +5,7 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from torchvision.transforms import transforms
 
-from .components.ebay_dataset import eBayDataset
+from .components.ebay_dataset import eBayDataset, eBayRetrievalDataset
 
 
 class eBayDataModule(LightningDataModule):
@@ -19,6 +19,7 @@ class eBayDataModule(LightningDataModule):
         val_transforms: List[Any] = None,
         aug_transforms: List[Any] = None,
         query_key: str = "query_part1",
+        retrieval_setting: bool = False,
     ):
         super().__init__()
 
@@ -60,9 +61,16 @@ class eBayDataModule(LightningDataModule):
 
         # load datasets only if they're not loaded already
         if not self.data_train and not self.data_val:
-            self.data_train = eBayDataset(
-                "train", self.train_transforms, self.hparams.data_dir, self.aug_transforms
-            )
+            if self.hparams.retrieval_setting:
+                self.data_train = eBayRetrievalDataset(
+                    "train",
+                    self.train_transforms,
+                    self.hparams.data_dir,
+                )
+            else:
+                self.data_train = eBayDataset(
+                    "train", self.train_transforms, self.hparams.data_dir, self.aug_transforms
+                )
             self.data_val = eBayDataset("val", self.val_transforms, self.hparams.data_dir)
         if not self.data_index and not self.data_query:
             self.data_index = eBayDataset("index", self.val_transforms, self.hparams.data_dir)
