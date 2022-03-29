@@ -595,3 +595,29 @@ class eBaySupConModule(LightningModule):
             lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams.lr
+
+
+class eBaySupConConModule(eBayContrastiveModule):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.supcon_loss = SupervisedContrastiveLoss()
+
+    def training_step(self, batch: Any, batch_idx: int):
+        x = batch["image"]
+        x_pos = batch["pos_image"]
+        text = batch["text"]
+        ids = batch["id"]
+
+        feats = self.forward(x)
+        pos_feats = self.forward(x_pos)
+        text_feats = self.text_net(text)
+
+        contrastive_loss = self.contrastive_loss(feats, text_feats)
+        supcon_loss = self.supcon_loss(torch.cat([feats, pos_feats], dim=0), ids.repeat(2))
+
+        self.log(
+            "train/contrastive_loss", contrastive_loss, on_step=True, on_epoch=True, prog_bar=False
+        )
+        self.log("train/supcon_loss", supcon_loss, on_step=True, on_epoch=True, prog_bar=False)
+
+        return {"loss": contrastive_loss + supcon_loss}
