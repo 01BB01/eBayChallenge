@@ -597,7 +597,7 @@ class eBaySupConModule(LightningModule):
                 pg["lr"] = lr_scale * self.hparams.lr
 
 
-class eBaySupConConModule(eBayContrastiveModule):
+class eBaySupConConModule(eBayPureContrastiveModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.supcon_loss = SupervisedContrastiveLoss()
