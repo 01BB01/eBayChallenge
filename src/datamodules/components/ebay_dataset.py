@@ -46,8 +46,10 @@ class eBayRetrievalDataset(eBayDataset):
         super().__init__(split_name, transform, root_dir)
         if split_name == "train":
             pseudo_ids = np.load(os.path.join(root_dir, "pseudo_train_ids.npy"))
+            self.load_text = True
         elif split_name == "index":
             pseudo_ids = np.load(os.path.join(root_dir, "pseudo_index_ids.npy"))
+            self.load_text = False
 
         self.id_dict = defaultdict(list)
         for i, id in enumerate(pseudo_ids):
@@ -75,6 +77,7 @@ class eBayRetrievalDataset(eBayDataset):
         pos_image = self._get_image(self._sample_positive(idx))
 
         sample = {"image": image, "pos_image": pos_image, "id": self.pseudo_ids[idx]}
-        sample["text"] = self.annotations["AUCT_TITL"][idx]
+        if self.load_text:
+            sample["text"] = self.annotations["AUCT_TITL"][idx]
 
         return sample
