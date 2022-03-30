@@ -20,6 +20,7 @@ class eBayDataModule(LightningDataModule):
         aug_transforms: List[Any] = None,
         query_key: str = "query_part1",
         retrieval_setting: bool = False,
+        index_trainable: bool = False,
     ):
         super().__init__()
 
@@ -62,11 +63,18 @@ class eBayDataModule(LightningDataModule):
         # load datasets only if they're not loaded already
         if not self.data_train and not self.data_val:
             if self.hparams.retrieval_setting:
-                self.data_train = eBayRetrievalDataset(
-                    "train",
-                    self.train_transforms,
-                    self.hparams.data_dir,
-                )
+                if self.hparams.index_trainable:
+                    self.data_train = eBayRetrievalDataset(
+                        "index",
+                        self.train_transforms,
+                        self.hparams.data_dir,
+                    )
+                else:
+                    self.data_train = eBayRetrievalDataset(
+                        "train",
+                        self.train_transforms,
+                        self.hparams.data_dir,
+                    )
             else:
                 self.data_train = eBayDataset(
                     "train", self.train_transforms, self.hparams.data_dir, self.aug_transforms
