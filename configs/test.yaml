@@ -34,3 +34,5 @@ name: "baseline"
 
 # passing checkpoint path is necessary
 ckpt_path: ???
+
+save_sim: False
