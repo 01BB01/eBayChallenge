@@ -77,6 +77,7 @@ def test(config: DictConfig) -> None:
     cdist_matrix = []
     edist_matrix = []
     chunk_size = 5000
+    query_feats_norm = F.normalize(query_feats, p=2, dim=-1)
     for i in range(index_feats.shape[0] // chunk_size + 1):
         print(f'{i}/{index_feats.shape[0] // chunk_size}', end='\r')
         start = i * chunk_size
@@ -84,9 +85,8 @@ def test(config: DictConfig) -> None:
         edist = -torch.cdist(query_feats, index_feats[start:end])  # q * 5000
         edist_matrix.append(edist)
 
-        query_feats = F.normalize(query_feats, p=2, dim=-1)
-        index_feats[start:end] = F.normalize(index_feats[start:end], p=2, dim=-1)
-        cdist = query_feats @ index_feats[start:end].t()
+        index_feats_norm = F.normalize(index_feats[start:end], p=2, dim=-1)
+        cdist = query_feats_norm @ index_feats_norm.t()
         cdist_matrix.append(cdist)
 
     for prefix, dist_matrix in zip(['cosine', 'euclidean'], [cdist_matrix, edist_matrix]):
