@@ -92,8 +92,6 @@ def test(config: DictConfig) -> None:
     if not os.path.isabs(config.csv_save_dir):
         config.csv_save_dir = os.path.join(hydra.utils.get_original_cwd(), config.csv_save_dir)
 
-    res = {}
-
     for prefix, dist_matrix in zip(['cosine', 'euclidean'], [cdist_matrix, edist_matrix]):
         dist_matrix = torch.cat(dist_matrix, dim=1)  # q * i
         _, pred_indices = torch.topk(dist_matrix, k=10, dim=1, largest=True, sorted=True)
@@ -105,9 +103,6 @@ def test(config: DictConfig) -> None:
             config.csv_save_dir = os.path.join(hydra.utils.get_original_cwd(), config.csv_save_dir)
         df.to_csv(os.path.join(config.csv_save_dir, f"{prefix}_predictions.csv"), index=False, header=False)
 
-        res[prefix] = dist_matrix
-
-    if config.get('save_sim'):
-        res['query_uuid'] = query_uuid
-        res['index_uuid'] = index_uuid
-        torch.save(res, os.path.join(config.csv_save_dir, f"sim_and_uuid.pth"))
+        if config.get('save_sim'):
+            res = {prefix: dist_matrix, 'query_uuid': query_uuid, 'index_uuid': index_uuid}
+            torch.save(res, os.path.join(config.csv_save_dir, f"{prefix}_dist_and_uuid.pth"))
