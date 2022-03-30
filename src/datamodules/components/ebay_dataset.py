@@ -44,7 +44,11 @@ class eBayDataset(Dataset):
 class eBayRetrievalDataset(eBayDataset):
     def __init__(self, split_name, transform=None, root_dir="./data/eBay/"):
         super().__init__(split_name, transform, root_dir)
-        pseudo_ids = np.load(os.path.join(root_dir, "pseudo_train_ids.npy"))
+        if split_name == "train":
+            pseudo_ids = np.load(os.path.join(root_dir, "pseudo_train_ids.npy"))
+        elif split_name == "index":
+            pseudo_ids = np.load(os.path.join(root_dir, "pseudo_index_ids.npy"))
+
         self.id_dict = defaultdict(list)
         for i, id in enumerate(pseudo_ids):
             self.id_dict[id].append(i)
