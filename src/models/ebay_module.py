@@ -1,3 +1,4 @@
+import copy
 import math
 import os
 from typing import Any, List
@@ -40,10 +41,6 @@ class eBayModule(LightningModule):
         optimizer: str = "adam",
         mixup_alpha: float = 0.0,
         cutmix_alpha: float = 0.0,
-        loss_1: float = 1.0,
-        loss_2: float = 1.0,
-        loss_3: float = 1.0,
-        linear_dim: int = 0,
         **kwargs
     ):
         super().__init__()
@@ -56,11 +53,6 @@ class eBayModule(LightningModule):
         self.linear_1 = nn.Linear(output_dim, 16, bias=False)
         self.linear_2 = nn.Linear(output_dim, 75, bias=False)
         self.linear_3 = nn.Linear(output_dim, 1000, bias=False)
-
-        if linear_dim != 0:
-            self.linear_feat = nn.Sequential(nn.Linear(output_dim, linear_dim), nn.GELU())
-        else:
-            self.linear_feat = None
 
         # loss function
         self.criterion_1 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
@@ -87,10 +79,7 @@ class eBayModule(LightningModule):
         self.val_acc_best = MaxMetric()
 
     def forward(self, x: torch.Tensor):
-        if self.linear_feat is not None:
-            return self.linear_feat(self.net(x))
-        else:
-            return self.net(x)
+        return self.net(x)
 
     def step(self, batch: Any):
         x = batch["image"]
@@ -111,12 +100,7 @@ class eBayModule(LightningModule):
         else:
             loss_3 = self.criterion_3(logits_3, y_3)
         preds = torch.argmax(logits_3, dim=1)
-        total_loss = (
-            self.hparams.loss_1 * loss_1
-            + self.hparams.loss_2 * loss_2
-            + self.hparams.loss_3 * loss_3
-        )
-        return total_loss, preds, y_3
+        return loss_1 + loss_2 + loss_3, preds, y_3
 
     def training_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
@@ -541,8 +525,8 @@ class eBaySupConModule(LightningModule):
         image = batch["image"]
         pos_image = batch["pos_image"]
         ids = batch["id"]
-        feats = self.forward(image)
-        pos_feats = self.forward(pos_image)
+        feats = self.net(image)
+        pos_feats = self.net(pos_image)
         supcon_loss = self.criterion(torch.cat([feats, pos_feats], dim=0), ids.repeat(2))
 
         self.log("train/supcon_loss", supcon_loss, on_step=True, on_epoch=True, prog_bar=False)
@@ -640,27 +624,48 @@ class eBaySupConConModule(eBayPureContrastiveModule):
         return {"loss": contrastive_loss + supcon_loss}
 
 
-class eBaySupConWithLinearModule(eBaySupConModule):
+class eBayMoSupConModule(eBaySupConModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.momentum = kwargs.get("momentum", 0.999)
+        # self.queue_size = kwargs.get("queue_size", 4096)
+        self.momentum_net = copy.deepcopy(self.net)
+        for param in self.momentum_net.parameters():
+            param.requires_grad = False
 
-        self.linear = nn.Linear(kwargs["output_dim"], kwargs["linear_dim"])
+        # self.register_buffer("feat_queue", torch.randn(self.hparams.output_dim, self.queue_size))
+        # self.register_buffer("id_queue", -torch.ones((1, self.queue_size), dtype=torch.long))
+        # self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
-    def forward(self, x: torch.Tensor):
-        x = self.net(x)
-        x = self.linear(x)
-        return x
+    @torch.no_grad()
+    def _momentum_update(self):
+        for param_q, param_k in zip(self.net.parameters(), self.momentum_net.parameters()):
+            param_k.data = param_k.data * self.momentum + param_q.data * (1.0 - self.momentum)
 
-    def get_params(self):
-        net_params = get_configured_parameters(
-            self.net,
-            base_lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay,
-        )
-        linear_params = get_configured_parameters(
-            self.linear,
-            base_lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay,
-            lr_multiplier=self.hparams.linear_lr_multiplier,
-        )
-        return net_params + linear_params
+    # @torch.no_grad()
+    # def _dequeue_and_enqueue(self, feat_keys, id_keys):
+    #     batch_size = feat_keys.shape[0]
+
+    #     ptr = int(self.queue_ptr)
+    #     assert self.queue_size % batch_size == 0  # for simplicity
+
+    #     # replace the keys at ptr (dequeue and enqueue)
+    #     self.feat_queue[:, ptr : ptr + batch_size] = feat_keys.T
+    #     self.id_queue[:, ptr : ptr + batch_size] = id_keys.T
+
+    #     ptr = (ptr + batch_size) % self.queue_size  # move pointer
+    #     self.queue_ptr[0] = ptr
+
+    def training_step(self, batch: Any, batch_idx: int):
+        image = batch["image"]
+        pos_image = batch["pos_image"]
+        ids = batch["id"]
+        feats = self.net(image)
+        with torch.no_grad():
+            self._momentum_update()
+            pos_feats = self.momentum_net(pos_image)
+        supcon_loss = self.criterion(torch.cat([feats, pos_feats], dim=0), ids.repeat(2))
+
+        self.log("train/supcon_loss", supcon_loss, on_step=True, on_epoch=True, prog_bar=False)
+
+        return {"loss": supcon_loss}
