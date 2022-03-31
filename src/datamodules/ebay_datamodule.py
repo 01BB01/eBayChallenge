@@ -1,8 +1,7 @@
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 
-import torch
 from pytorch_lightning import LightningDataModule
-from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import transforms
 
 from .components.ebay_dataset import eBayDataset, eBayRetrievalDataset
