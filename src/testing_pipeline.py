@@ -79,7 +79,7 @@ def test(config: DictConfig) -> None:
     chunk_size = 5000
     query_feats_norm = F.normalize(query_feats, p=2, dim=-1)
     for i in range(index_feats.shape[0] // chunk_size + 1):
-        print(f'{i}/{index_feats.shape[0] // chunk_size}', end='\r')
+        print(f"{i}/{index_feats.shape[0] // chunk_size}", end="\r")
         start = i * chunk_size
         end = start + chunk_size
         edist = -torch.cdist(query_feats, index_feats[start:end])  # q * 5000
@@ -92,7 +92,7 @@ def test(config: DictConfig) -> None:
     if not os.path.isabs(config.csv_save_dir):
         config.csv_save_dir = os.path.join(hydra.utils.get_original_cwd(), config.csv_save_dir)
 
-    for prefix, dist_matrix in zip(['cosine', 'euclidean'], [cdist_matrix, edist_matrix]):
+    for prefix, dist_matrix in zip(["cosine", "euclidean"], [cdist_matrix, edist_matrix]):
         dist_matrix = torch.cat(dist_matrix, dim=1)  # q * i
         _, pred_indices = torch.topk(dist_matrix, k=10, dim=1, largest=True, sorted=True)
 
@@ -101,8 +101,12 @@ def test(config: DictConfig) -> None:
         df[1] = df[1].apply(lambda x: " ".join([index_uuid[i] for i in x]))
         if not os.path.isabs(config.csv_save_dir):
             config.csv_save_dir = os.path.join(hydra.utils.get_original_cwd(), config.csv_save_dir)
-        df.to_csv(os.path.join(config.csv_save_dir, f"{prefix}_predictions.csv"), index=False, header=False)
+        df.to_csv(
+            os.path.join(config.csv_save_dir, f"{prefix}_predictions.csv"),
+            index=False,
+            header=False,
+        )
 
-        if config.get('save_sim'):
-            res = {prefix: dist_matrix, 'query_uuid': query_uuid, 'index_uuid': index_uuid}
+        if config.get("save_sim"):
+            res = {prefix: dist_matrix, "query_uuid": query_uuid, "index_uuid": index_uuid}
             torch.save(res, os.path.join(config.csv_save_dir, f"{prefix}_dist_and_uuid.pth"))
