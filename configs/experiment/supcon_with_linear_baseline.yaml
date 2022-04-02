@@ -14,7 +14,7 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "supcon_baseline"
+name: "supcon_with_linear_baseline"
 
 seed: 42
 
