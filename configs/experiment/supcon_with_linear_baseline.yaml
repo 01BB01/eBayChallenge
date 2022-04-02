@@ -1,0 +1,59 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=baseline
+
+defaults:
+  - override /datamodule: ebay.yaml
+  - override /model: supcon_with_linear.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /trainer: ddp.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "supcon_baseline"
+
+seed: 42
+
+trainer:
+  min_epochs: 40
+  max_epochs: 40
+
+model:
+  lr: 0.0001
+  weight_decay: 0.0001
+  warmup_steps: 26005
+  milestones: [20, 35]
+  net:
+    name: resnet50
+  output_dim: 2048
+  linear_dim: 1024
+  linear_lr_multiplier: 1.0
+
+datamodule:
+  batch_size: 128
+  retrieval_setting: True
+  train_transforms:
+    - _target_: torchvision.transforms.RandomResizedCrop
+      size: [224, 224]
+      scale: [0.5, 1.0]
+    - _target_: torchvision.transforms.RandomHorizontalFlip
+    - _target_: torchvision.transforms.TrivialAugmentWide
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+    - _target_: torchvision.transforms.RandomErasing
+      p: 0.1
+
+callbacks:
+  model_checkpoint:
+    monitor: null
+    every_n_epochs: 5
+
+logger:
+  wandb:
+    tags: ["ebay", "${name}"]

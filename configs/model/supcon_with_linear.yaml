@@ -1,0 +1,9 @@
+_target_: src.models.ebay_module.eBaySupConWithLinearModule
+lr: 0.0001
+weight_decay: 0.0001
+linear_dim: 1024
+linear_lr_multiplier: 1.0
+
+net:
+  _target_: src.models.components.torchvision_image_encoder.TorchvisionImageEncoder
+  name: resnet50
