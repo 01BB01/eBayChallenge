@@ -55,8 +55,8 @@ class eBayModule(LightningModule):
         self.linear_3 = nn.Linear(output_dim, 1000, bias=False)
 
         # loss function
-        self.criterion_1 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
-        self.criterion_2 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.criterion_1 = torch.nn.CrossEntropyLoss()
+        self.criterion_2 = torch.nn.CrossEntropyLoss()
         self.criterion_3 = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
         # mixup and cutmix
@@ -184,6 +184,8 @@ class eBayModule(LightningModule):
         """
         if self.hparams.optimizer == "adam":
             optimizer = torch.optim.Adam(params=self.get_params())
+        elif self.hparams.optimizer == "adamw":
+            optimizer = torch.optim.AdamW(params=self.get_params())
         elif self.hparams.optimizer == "sgd":
             optimizer = torch.optim.SGD(params=self.get_params(), momentum=0.9)
         if self.hparams.milestones is not None:
