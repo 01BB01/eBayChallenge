@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pytorch_lightning import LightningModule
 from torch.optim.lr_scheduler import MultiStepLR
-from torchmetrics import F1Score, MaxMetric
+from torchmetrics import MaxMetric, Recall
 from torchmetrics.classification.accuracy import Accuracy
 from torchvision.transforms import RandomChoice
 
@@ -696,12 +696,14 @@ class eBayMultiModule(LightningModule):
         self.linear = nn.Linear(output_dim, 22295, bias=False)
 
         # loss function
-        self.criterion = torch.nn.BCEWithLogitsLoss()
+        cwd = hydra.utils.get_original_cwd()
+        pos_weight = torch.Tensor(np.load(os.path.join(cwd, "src/models/pos_weight.npy")))
+        self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         # use separate metric instance for train, val and test step
         # to ensure a proper reduction over the epoch
-        self.train_acc = F1Score()
-        self.val_acc = F1Score()
+        self.train_acc = Recall()
+        self.val_acc = Recall()
 
         # for logging best so far validation accuracy
         self.val_acc_best = MaxMetric()
@@ -717,7 +719,8 @@ class eBayMultiModule(LightningModule):
         logits = self.linear(feats)
         loss = self.criterion(logits, y)
 
-        preds = torch.sigmoid(logits)
+        with torch.no_grad():
+            preds = torch.sigmoid(logits.detach())
         return loss, preds, y.long()
 
     def training_step(self, batch: Any, batch_idx: int):
@@ -731,7 +734,7 @@ class eBayMultiModule(LightningModule):
         # we can return here dict with any tensors
         # and then read it in some callback or in `training_epoch_end()`` below
         # remember to always return loss from `training_step()` or else backpropagation will fail!
-        return {"loss": loss, "preds": preds, "targets": targets}
+        return {"loss": loss}
 
     def training_epoch_end(self, outputs: List[Any]):
         # `outputs` is a list of dicts returned from `training_step()`
@@ -745,7 +748,7 @@ class eBayMultiModule(LightningModule):
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
 
-        return {"loss": loss, "preds": preds, "targets": targets}
+        return {"loss": loss}
 
     def validation_epoch_end(self, outputs: List[Any]):
         acc = self.val_acc.compute()  # get val accuracy from current epoch
