@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pytorch_lightning import LightningModule
 from torch.optim.lr_scheduler import MultiStepLR
-from torchmetrics import MaxMetric, Recall
+from torchmetrics import F1Score, MaxMetric
 from torchmetrics.classification.accuracy import Accuracy
 from torchvision.transforms import RandomChoice
 
@@ -702,8 +702,8 @@ class eBayMultiModule(LightningModule):
 
         # use separate metric instance for train, val and test step
         # to ensure a proper reduction over the epoch
-        self.train_acc = Recall()
-        self.val_acc = Recall()
+        self.train_acc = F1Score()
+        self.val_acc = F1Score()
 
         # for logging best so far validation accuracy
         self.val_acc_best = MaxMetric()
