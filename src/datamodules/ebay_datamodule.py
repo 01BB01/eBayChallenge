@@ -20,6 +20,7 @@ class eBayDataModule(LightningDataModule):
         query_key: str = "query_part1",
         retrieval_setting: bool = False,
         index_trainable: bool = False,
+        multi_label: bool = False,
     ):
         super().__init__()
 
@@ -76,9 +77,15 @@ class eBayDataModule(LightningDataModule):
                     )
             else:
                 self.data_train = eBayDataset(
-                    "train", self.train_transforms, self.hparams.data_dir, self.aug_transforms
+                    "train",
+                    self.train_transforms,
+                    self.hparams.data_dir,
+                    self.aug_transforms,
+                    self.hparams.multi_label,
                 )
-            self.data_val = eBayDataset("val", self.val_transforms, self.hparams.data_dir)
+            self.data_val = eBayDataset(
+                "val", self.val_transforms, self.hparams.data_dir, None, self.hparams.multi_label
+            )
         if not self.data_index and not self.data_query:
             self.data_index = eBayDataset("index", self.val_transforms, self.hparams.data_dir)
             self.data_query = eBayDataset(
