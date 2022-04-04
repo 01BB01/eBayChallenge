@@ -19,11 +19,13 @@ name: "convnext_strong_baseline"
 seed: 42
 
 trainer:
-  min_epochs: 40
-  max_epochs: 40
+  min_epochs: 50
+  max_epochs: 50
+  gpus: 4
 
 model:
-  lr: 0.0001
+  lr: 0.00001
+  classifier_lr_multiplier: 10.0
   weight_decay: 0.0001
   warmup_steps: 26005
   milestones: [20, 35]
@@ -31,8 +33,7 @@ model:
     name: convnext_base_in22ft1k
   output_dim: 1024
   label_smoothing: 0.1
-  mixup_alpha: 1.0
-  cutmix_alpha: 1.0
+  optimizer: adamw
 
 datamodule:
   batch_size: 64
@@ -47,7 +48,7 @@ datamodule:
       mean: [0.485, 0.456, 0.406]
       std: [0.229, 0.224, 0.225]
     - _target_: torchvision.transforms.RandomErasing
-      p: 0.1
+      p: 0.25
 
 logger:
   wandb:
