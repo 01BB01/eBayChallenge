@@ -723,7 +723,7 @@ class eBayMultiModule(LightningModule):
         logits = self.linear(feats)
 
         if self.hparams.multi_label_smoothing:
-            smooth_y = y / torch.sum(y, dim=1, keepdim=True)
+            smooth_y = y / (torch.sum(y, dim=1, keepdim=True) + 1e-8)
             loss = self.criterion(logits, smooth_y)
             _, indices = torch.topk(logits, k=10, dim=1, largest=True, sorted=True)
             preds = torch.zeros_like(y)
