@@ -684,6 +684,7 @@ class eBayMultiModule(LightningModule):
         milestones: List[int] = None,
         classifier_lr_multiplier: float = 1.0,
         optimizer: str = "adamw",
+        multi_label_smoothing: bool = False,
         **kwargs
     ):
         super().__init__()
@@ -696,9 +697,12 @@ class eBayMultiModule(LightningModule):
         self.linear = nn.Linear(output_dim, 22295, bias=False)
 
         # loss function
-        cwd = hydra.utils.get_original_cwd()
-        pos_weight = torch.Tensor(np.load(os.path.join(cwd, "src/models/pos_weight.npy")))
-        self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        if multi_label_smoothing:
+            self.criterion = torch.nn.CrossEntropyLoss()
+        else:
+            cwd = hydra.utils.get_original_cwd()
+            pos_weight = torch.Tensor(np.load(os.path.join(cwd, "src/models/pos_weight.npy")))
+            self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
         # use separate metric instance for train, val and test step
         # to ensure a proper reduction over the epoch
@@ -717,10 +721,17 @@ class eBayMultiModule(LightningModule):
 
         feats = self.forward(x)
         logits = self.linear(feats)
-        loss = self.criterion(logits, y)
 
-        with torch.no_grad():
-            preds = torch.sigmoid(logits.detach())
+        if self.hparams.multi_label_smoothing:
+            smooth_y = y / torch.sum(y, dim=1, keepdim=True)
+            loss = self.criterion(logits, smooth_y)
+            _, indices = torch.topk(logits, k=10, dim=1, largest=True, sorted=True)
+            preds = torch.zeros_like(y)
+            preds[torch.arange(preds.size(0))[:, None], indices] = 1
+        else:
+            loss = self.criterion(logits, y)
+            with torch.no_grad():
+                preds = torch.sigmoid(logits.detach())
         return loss, preds, y.long()
 
     def training_step(self, batch: Any, batch_idx: int):
