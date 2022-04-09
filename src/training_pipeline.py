@@ -35,12 +35,18 @@ def train(config: DictConfig) -> Optional[float]:
     # Convert relative ckpt path to absolute path if necessary
     ckpt_path = config.trainer.get("resume_from_checkpoint")
     if ckpt_path and not os.path.isabs(ckpt_path):
-        config.trainer.resume_from_checkpoint = os.path.join(
-            hydra.utils.get_original_cwd(), ckpt_path
-        )
-        log.info("Loading from ckpt_path")
+        resume_from_checkpoint = os.path.join(hydra.utils.get_original_cwd(), ckpt_path)
     else:
-        log.info("Starting a new experiment")
+        resume_from_checkpoint = None
+
+    if resume_from_checkpoint is not None:
+        if os.path.exists(resume_from_checkpoint):
+            config.trainer.resume_from_checkpoint = resume_from_checkpoint
+            log.info("Loading from ckpt_path")
+        else:
+            log.info("Starting a new experiment")
+    else:
+        log.info("Starting a new experiment (resume_from_checkpoint is None)")
 
     # Init lightning datamodule
     log.info(f"Instantiating datamodule <{config.datamodule._target_}>")
