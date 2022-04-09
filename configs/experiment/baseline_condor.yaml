@@ -1,0 +1,37 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=baseline
+
+defaults:
+  - override /datamodule: ebay.yaml
+  - override /model: three_classes.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /trainer: ddp.yaml
+  - override /log_dir: condor.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "baseline"
+condor_dirname: ???
+
+seed: 42
+
+trainer:
+  min_epochs: 10
+  max_epochs: 10
+
+model:
+  lr: 0.0001
+  net:
+    name: resnet50
+
+datamodule:
+  batch_size: 128
+
+logger:
+  wandb:
+    tags: ["ebay", "${name}"]
