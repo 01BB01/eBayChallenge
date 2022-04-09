@@ -38,6 +38,9 @@ def train(config: DictConfig) -> Optional[float]:
         config.trainer.resume_from_checkpoint = os.path.join(
             hydra.utils.get_original_cwd(), ckpt_path
         )
+        log.info("Loading from ckpt_path")
+    else:
+        log.info("Starting a new experiment")
 
     # Init lightning datamodule
     log.info(f"Instantiating datamodule <{config.datamodule._target_}>")
