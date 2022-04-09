@@ -44,6 +44,7 @@ def train(config: DictConfig) -> Optional[float]:
             config.trainer.resume_from_checkpoint = resume_from_checkpoint
             log.info("Loading from ckpt_path")
         else:
+            del config.trainer.resume_from_checkpoint
             log.info("Starting a new experiment")
     else:
         log.info("Starting a new experiment (resume_from_checkpoint is None)")
