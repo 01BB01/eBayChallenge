@@ -51,6 +51,7 @@ class eBayDataset(Dataset):
                 labels = torch.zeros(22295)
                 labels[self.multi_labels[idx]] = 1
                 sample["multi_label"] = labels
+                sample["text"] = self.annotations["AUCT_TITL"][idx]
             else:
                 sample["label_1"] = self.annotations["META_CATEG_ID"][idx]
                 sample["label_2"] = self.annotations["CATEG_LVL2_ID"][idx]
