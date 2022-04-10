@@ -1,4 +1,3 @@
-import copy
 import math
 import os
 from typing import Any, List
@@ -626,53 +625,6 @@ class eBaySupConConModule(eBayPureContrastiveModule):
         return {"loss": contrastive_loss + supcon_loss}
 
 
-class eBayMoSupConModule(eBaySupConModule):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.momentum = kwargs.get("momentum", 0.999)
-        # self.queue_size = kwargs.get("queue_size", 4096)
-        self.momentum_net = copy.deepcopy(self.net)
-        for param in self.momentum_net.parameters():
-            param.requires_grad = False
-
-        # self.register_buffer("feat_queue", torch.randn(self.hparams.output_dim, self.queue_size))
-        # self.register_buffer("id_queue", -torch.ones((1, self.queue_size), dtype=torch.long))
-        # self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
-
-    @torch.no_grad()
-    def _momentum_update(self):
-        for param_q, param_k in zip(self.net.parameters(), self.momentum_net.parameters()):
-            param_k.data = param_k.data * self.momentum + param_q.data * (1.0 - self.momentum)
-
-    # @torch.no_grad()
-    # def _dequeue_and_enqueue(self, feat_keys, id_keys):
-    #     batch_size = feat_keys.shape[0]
-
-    #     ptr = int(self.queue_ptr)
-    #     assert self.queue_size % batch_size == 0  # for simplicity
-
-    #     # replace the keys at ptr (dequeue and enqueue)
-    #     self.feat_queue[:, ptr : ptr + batch_size] = feat_keys.T
-    #     self.id_queue[:, ptr : ptr + batch_size] = id_keys.T
-
-    #     ptr = (ptr + batch_size) % self.queue_size  # move pointer
-    #     self.queue_ptr[0] = ptr
-
-    def training_step(self, batch: Any, batch_idx: int):
-        image = batch["image"]
-        pos_image = batch["pos_image"]
-        ids = batch["id"]
-        feats = self.net(image)
-        with torch.no_grad():
-            self._momentum_update()
-            pos_feats = self.momentum_net(pos_image)
-        supcon_loss = self.criterion(torch.cat([feats, pos_feats], dim=0), ids.repeat(2))
-
-        self.log("train/supcon_loss", supcon_loss, on_step=True, on_epoch=True, prog_bar=False)
-
-        return {"loss": supcon_loss}
-
-
 class eBayMultiModule(LightningModule):
     def __init__(
         self,
@@ -715,7 +667,7 @@ class eBayMultiModule(LightningModule):
     def forward(self, x: torch.Tensor):
         return self.net(x)
 
-    def step(self, batch: Any):
+    def step(self, batch: Any, return_feats: bool = False):
         x = batch["image"]
         y = batch["multi_label"]
 
@@ -732,6 +684,9 @@ class eBayMultiModule(LightningModule):
             loss = self.criterion(logits, y)
             with torch.no_grad():
                 preds = torch.sigmoid(logits.detach())
+
+        if return_feats:
+            return loss, preds, y.long(), feats
         return loss, preds, y.long()
 
     def training_step(self, batch: Any, batch_idx: int):
@@ -832,3 +787,60 @@ class eBayMultiModule(LightningModule):
             lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams.lr
+
+
+class eBayMultiContrastiveModule(eBayMultiModule):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.text_net = kwargs["text_net"]
+        if kwargs["output_dim"] != 768:
+            self.linear_text = nn.Linear(kwargs["output_dim"], 768, bias=False)
+            self.linear = nn.Linear(768, 22295, bias=False)
+        else:
+            self.linear_text = nn.Identity()
+        self.contrastive_loss = ContrastiveLoss()
+
+    def forward(self, x: torch.Tensor):
+        return self.linear_text(self.net(x))
+
+    def training_step(self, batch: Any, batch_idx: int):
+        loss, preds, targets, feats = self.step(batch, return_feats=True)
+
+        text_feats = self.text_net(batch["text"])
+        contrastive_loss = self.contrastive_loss(feats, text_feats)
+
+        # log train metrics
+        acc = self.train_acc(preds, targets)
+        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=False)
+        self.log(
+            "train/contrastive_loss", contrastive_loss, on_step=True, on_epoch=True, prog_bar=False
+        )
+        self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
+
+        return {"loss": loss + contrastive_loss}
+
+    def get_params(self):
+        net_params = get_configured_parameters(
+            self.net,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+        )
+        text_net_params = get_configured_parameters(
+            self.text_net,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.text_lr_multiplier,
+        )
+        linear_params = get_configured_parameters(
+            self.linear,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.classifier_lr_multiplier,
+        )
+        linear_text_params = get_configured_parameters(
+            self.linear_text,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.classifier_lr_multiplier,
+        )
+        return net_params + linear_params + text_net_params + linear_text_params
