@@ -526,8 +526,8 @@ class eBaySupConModule(LightningModule):
         image = batch["image"]
         pos_image = batch["pos_image"]
         ids = batch["id"]
-        feats = self.net(image)
-        pos_feats = self.net(pos_image)
+        feats = self.forward(image)
+        pos_feats = self.forward(pos_image)
         supcon_loss = self.criterion(torch.cat([feats, pos_feats], dim=0), ids.repeat(2))
 
         self.log("train/supcon_loss", supcon_loss, on_step=True, on_epoch=True, prog_bar=False)
@@ -623,6 +623,32 @@ class eBaySupConConModule(eBayPureContrastiveModule):
         self.log("train/supcon_loss", supcon_loss, on_step=True, on_epoch=True, prog_bar=False)
 
         return {"loss": contrastive_loss + supcon_loss}
+
+
+class eBaySupConWithLinearModule(eBaySupConModule):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.linear = nn.Linear(kwargs["output_dim"], kwargs["linear_dim"])
+
+    def forward(self, x: torch.Tensor):
+        x = self.net(x)
+        x = self.linear(x)
+        return x
+
+    def get_params(self):
+        net_params = get_configured_parameters(
+            self.net,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+        )
+        linear_params = get_configured_parameters(
+            self.linear,
+            base_lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            lr_multiplier=self.hparams.linear_lr_multiplier,
+        )
+        return net_params + linear_params
 
 
 class eBayMultiModule(LightningModule):
