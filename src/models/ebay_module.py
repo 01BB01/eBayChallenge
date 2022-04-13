@@ -40,6 +40,10 @@ class eBayModule(LightningModule):
         optimizer: str = "adam",
         mixup_alpha: float = 0.0,
         cutmix_alpha: float = 0.0,
+        loss_1: float = 1.0,
+        loss_2: float = 1.0,
+        loss_3: float = 1.0,
+        linear_dim: int = 0,
         **kwargs
     ):
         super().__init__()
@@ -52,6 +56,11 @@ class eBayModule(LightningModule):
         self.linear_1 = nn.Linear(output_dim, 16, bias=False)
         self.linear_2 = nn.Linear(output_dim, 75, bias=False)
         self.linear_3 = nn.Linear(output_dim, 1000, bias=False)
+
+        if linear_dim != 0:
+            self.linear_feat = nn.Sequential(nn.Linear(output_dim, linear_dim), nn.GELU())
+        else:
+            self.linear_feat = None
 
         # loss function
         self.criterion_1 = torch.nn.CrossEntropyLoss()
@@ -78,7 +87,10 @@ class eBayModule(LightningModule):
         self.val_acc_best = MaxMetric()
 
     def forward(self, x: torch.Tensor):
-        return self.net(x)
+        if self.linear_feat is not None:
+            return self.linear_feat(self.net(x))
+        else:
+            return self.net(x)
 
     def step(self, batch: Any):
         x = batch["image"]
@@ -99,7 +111,12 @@ class eBayModule(LightningModule):
         else:
             loss_3 = self.criterion_3(logits_3, y_3)
         preds = torch.argmax(logits_3, dim=1)
-        return loss_1 + loss_2 + loss_3, preds, y_3
+        total_loss = (
+            self.hparams.loss_1 * loss_1
+            + self.hparams.loss_2 * loss_2
+            + self.hparams.loss_3 * loss_3
+        )
+        return total_loss, preds, y_3
 
     def training_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.step(batch)
