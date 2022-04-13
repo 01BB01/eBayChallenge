@@ -1,7 +1,0 @@
-_target_: src.models.ebay_module.eBayMoSupConModule
-lr: 0.0001
-weight_decay: 0.0001
-
-net:
-  _target_: src.models.components.torchvision_image_encoder.TorchvisionImageEncoder
-  name: resnet50
