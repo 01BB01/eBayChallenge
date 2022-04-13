@@ -1,3 +1,4 @@
+import copy
 import math
 import os
 from typing import Any, List
@@ -887,3 +888,80 @@ class eBayMultiContrastiveModule(eBayMultiModule):
             lr_multiplier=self.hparams.classifier_lr_multiplier,
         )
         return net_params + linear_params + text_net_params + linear_text_params
+
+
+class eBayMultiSelfDistillModule(eBayMultiModule):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.alpha_t = kwargs.get("alpha_t", 0.5)
+        self.alpha = 0.0
+        self.momentum = kwargs.get("momentum", 0.999)
+        self.total_steps = kwargs.get("total_steps", 5201 * 50)
+        self.momentum_net = copy.deepcopy(self.net)
+        for param in self.momentum_net.parameters():
+            param.requires_grad = False
+        self.momentum_linear = copy.deepcopy(self.linear)
+        for param in self.momentum_linear.parameters():
+            param.requires_grad = False
+
+    @torch.no_grad()
+    def momentum_forward(self, x: torch.Tensor):
+        x = self.momentum_net(x)
+        x = self.momentum_linear(x)
+        x = F.softmax(x, dim=1)
+        return x
+
+    @torch.no_grad()
+    def momentum_update(self):
+        for param_q, param_k in zip(self.net.parameters(), self.momentum_net.parameters()):
+            param_k.data = param_k.data * self.momentum + param_q.data * (1.0 - self.momentum)
+        for param_q, param_k in zip(self.linear.parameters(), self.momentum_linear.parameters()):
+            param_k.data = param_k.data * self.momentum + param_q.data * (1.0 - self.momentum)
+
+    def step(self, batch: Any, return_feats: bool = False):
+        x = batch["image"]
+        y = batch["multi_label"]
+        self.momentum_update()
+        soft_target = self.momentum_forward(x)
+
+        feats = self.forward(x)
+        logits = self.linear(feats)
+
+        if self.hparams.multi_label_smoothing:
+            smooth_y = y / (torch.sum(y, dim=1, keepdim=True) + 1e-8)
+            smooth_y = (1 - self.alpha) * smooth_y + self.alpha * soft_target
+            loss = self.criterion(logits, smooth_y)
+            _, indices = torch.topk(logits, k=10, dim=1, largest=True, sorted=True)
+            preds = torch.zeros_like(y)
+            preds[torch.arange(preds.size(0))[:, None], indices] = 1
+        else:
+            smooth_y = (1 - self.alpha) * y + self.alpha * soft_target
+            loss = self.criterion(logits, smooth_y)
+            with torch.no_grad():
+                preds = torch.sigmoid(logits.detach())
+
+        if return_feats:
+            return loss, preds, y.long(), feats
+        return loss, preds, y.long()
+
+    def optimizer_step(
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_idx,
+        optimizer_closure,
+        on_tpu,
+        using_native_amp,
+        using_lbfgs,
+    ):
+        # update params
+        optimizer.step(closure=optimizer_closure)
+
+        # manually warm up lr without a scheduler
+        if self.trainer.global_step < self.hparams.warmup_steps:
+            lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_scale * self.hparams.lr
+
+        self.alpha = self.alpha_t * (self.trainer.global_step / self.total_steps)
