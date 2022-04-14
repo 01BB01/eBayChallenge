@@ -27,7 +27,7 @@ model:
   lr: 0.0001
   classifier_lr_multiplier: 10.0
   weight_decay: 0.0001
-  warmup_steps: 29720
+  warmup_steps: 52010
   milestones: [10, 15]
   net:
     name: convnext_xlarge_in22ft1k
@@ -35,10 +35,10 @@ model:
   optimizer: adamw
   multi_label_smoothing: True
   alpha_t: 0.8
-  total_steps: 118880
+  total_steps: 208040
 
 datamodule:
-  batch_size: 28
+  batch_size: 16
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
