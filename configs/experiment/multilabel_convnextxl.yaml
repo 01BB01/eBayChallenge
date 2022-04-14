@@ -26,8 +26,8 @@ trainer:
 model:
   lr: 0.0001
   classifier_lr_multiplier: 10.0
-  weight_decay: 0.0001
-  warmup_steps: 26005
+  weight_decay: 0.0005
+  warmup_steps: 29720
   milestones: [10, 15]
   net:
     name: convnext_xlarge_in22ft1k
@@ -36,12 +36,12 @@ model:
   multi_label_smoothing: True
 
 datamodule:
-  batch_size: 32
+  batch_size: 28
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
       size: [224, 224]
-      scale: [0.25, 1.0]
+      scale: [0.2, 1.0]
     - _target_: torchvision.transforms.RandomHorizontalFlip
     - _target_: torchvision.transforms.TrivialAugmentWide
     - _target_: torchvision.transforms.ToTensor
