@@ -893,7 +893,8 @@ class eBayMultiContrastiveModule(eBayMultiModule):
 class eBayMultiSelfDistillModule(eBayMultiModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.alpha_t = kwargs.get("alpha_t", 0.5)
+        self.alpha_i = kwargs.get("alpha_i", 0.0)
+        self.alpha_t = kwargs.get("alpha_t", 0.5) - self.alpha_i
         self.alpha = 0.0
         self.momentum = kwargs.get("momentum", 0.999)
         self.total_steps = kwargs.get("total_steps", 5201 * 50)
@@ -964,4 +965,4 @@ class eBayMultiSelfDistillModule(eBayMultiModule):
             for pg in optimizer.param_groups:
                 pg["lr"] = lr_scale * self.hparams.lr
 
-        self.alpha = self.alpha_t * (self.trainer.global_step / self.total_steps)
+        self.alpha = self.alpha_i + self.alpha_t * (self.trainer.global_step / self.total_steps)
