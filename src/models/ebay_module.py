@@ -931,6 +931,8 @@ class eBayMultiSelfDistillModule(eBayMultiModule):
         if self.hparams.multi_label_smoothing:
             smooth_y = y / (torch.sum(y, dim=1, keepdim=True) + 1e-8)
             smooth_y = (1 - self.alpha) * smooth_y + self.alpha * soft_target
+            fake_data = batch["fake"]
+            smooth_y[fake_data] = soft_target[fake_data]
             loss = self.criterion(logits, smooth_y)
             _, indices = torch.topk(logits, k=10, dim=1, largest=True, sorted=True)
             preds = torch.zeros_like(y)

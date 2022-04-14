@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 
 from pytorch_lightning import LightningDataModule
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torchvision.transforms import transforms
 
 from .components.ebay_dataset import eBayDataset, eBayRetrievalDataset
@@ -21,6 +21,7 @@ class eBayDataModule(LightningDataModule):
         retrieval_setting: bool = False,
         index_trainable: bool = False,
         multi_label: bool = False,
+        concat_train_index: bool = False,
     ):
         super().__init__()
 
@@ -75,6 +76,22 @@ class eBayDataModule(LightningDataModule):
                         self.train_transforms,
                         self.hparams.data_dir,
                     )
+            elif self.hparams.concat_train_index:
+                data_train = eBayDataset(
+                    "train",
+                    self.train_transforms,
+                    self.hparams.data_dir,
+                    self.aug_transforms,
+                    self.hparams.multi_label,
+                )
+                data_index = eBayDataset(
+                    "index",
+                    self.train_transforms,
+                    self.hparams.data_dir,
+                    self.aug_transforms,
+                    self.hparams.multi_label,
+                )
+                self.data_train = ConcatDataset([data_train, data_index])
             else:
                 self.data_train = eBayDataset(
                     "train",
