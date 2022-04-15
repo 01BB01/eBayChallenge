@@ -681,6 +681,7 @@ class eBayMultiModule(LightningModule):
         classifier_lr_multiplier: float = 1.0,
         optimizer: str = "adamw",
         multi_label_smoothing: bool = False,
+        multi_scale_test: bool = False,
         **kwargs
     ):
         super().__init__()
@@ -772,7 +773,10 @@ class eBayMultiModule(LightningModule):
         pass
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int):
-        feats = self.forward(batch["image"])
+        if self.hparams.multi_scale_test:
+            feats = self.net.model.forward_multiscale(batch["image"])
+        else:
+            feats = self.forward(batch["image"])
         return {"feats": feats, "uuid": batch["uuid"]}
 
     def on_epoch_end(self):

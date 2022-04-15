@@ -7,8 +7,8 @@ defaults:
   - override /datamodule: ebay.yaml
   - override /model: multi_label_selfdistill.yaml
   - override /callbacks: default.yaml
-  - override /logger: null
-  - override /trainer: default.yaml
+  - override /logger: wandb.yaml
+  - override /trainer: ddp.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
