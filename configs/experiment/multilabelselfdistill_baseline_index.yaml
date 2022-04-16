@@ -19,15 +19,15 @@ name: "multilabelselfdistill_baseline_index"
 seed: 42
 
 trainer:
-  min_epochs: 50
-  max_epochs: 50
+  min_epochs: 35
+  max_epochs: 35
 
 model:
   lr: 0.0001
   classifier_lr_multiplier: 10.0
   weight_decay: 0.0001
   warmup_steps: 47510
-  milestones: [45]
+  milestones: [30]
   net:
     name: resnet50
   output_dim: 2048
