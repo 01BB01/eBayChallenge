@@ -65,6 +65,8 @@ def test(config: DictConfig) -> None:
     # Log hyperparameters
     trainer.logger.log_hyperparams({"ckpt_path": config.ckpt_path})
 
+    multi_scale_test = config.model.multi_scale_test
+
     log.info("Starting testing!")
     query_predictions, index_predictions = trainer.predict(
         model=model, datamodule=datamodule, ckpt_path=config.ckpt_path
@@ -77,7 +79,11 @@ def test(config: DictConfig) -> None:
     cdist_matrix = []
     edist_matrix = []
     chunk_size = 5000
-    query_feats_norm = F.normalize(query_feats, p=2, dim=-1)
+    if not multi_scale_test:
+        query_feats_norm = F.normalize(query_feats, p=2, dim=-1)
+    else:
+        query_feats_norm = query_feats
+
     for i in range(index_feats.shape[0] // chunk_size + 1):
         print(f"{i}/{index_feats.shape[0] // chunk_size}", end="\r")
         start = i * chunk_size
@@ -85,7 +91,10 @@ def test(config: DictConfig) -> None:
         edist = -torch.cdist(query_feats, index_feats[start:end])  # q * 5000
         edist_matrix.append(edist)
 
-        index_feats_norm = F.normalize(index_feats[start:end], p=2, dim=-1)
+        if not multi_scale_test:
+            index_feats_norm = F.normalize(index_feats[start:end], p=2, dim=-1)
+        else:
+            index_feats_norm = index_feats[start:end]
         cdist = query_feats_norm @ index_feats_norm.t()
         cdist_matrix.append(cdist)
 
