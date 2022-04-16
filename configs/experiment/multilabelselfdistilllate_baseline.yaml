@@ -1,0 +1,55 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=baseline
+
+defaults:
+  - override /datamodule: ebay.yaml
+  - override /model: multi_label_selfdistill_late.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /trainer: ddp.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "multilabelselfdistilllate_baseline"
+
+seed: 42
+
+trainer:
+  min_epochs: 50
+  max_epochs: 50
+
+model:
+  lr: 0.0001
+  classifier_lr_multiplier: 10.0
+  weight_decay: 0.0001
+  warmup_steps: 26005
+  milestones: [45]
+  net:
+    name: resnet50
+  output_dim: 2048
+  optimizer: adamw
+  multi_label_smoothing: True
+
+datamodule:
+  batch_size: 128
+  multi_label: True
+  train_transforms:
+    - _target_: torchvision.transforms.RandomResizedCrop
+      size: [224, 224]
+      scale: [0.5, 1.0]
+    - _target_: torchvision.transforms.RandomHorizontalFlip
+    - _target_: torchvision.transforms.TrivialAugmentWide
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+    - _target_: torchvision.transforms.RandomErasing
+      p: 0.25
+
+logger:
+  wandb:
+    tags: ["ebay", "${name}"]
