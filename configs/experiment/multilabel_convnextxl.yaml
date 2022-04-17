@@ -31,11 +31,11 @@ model:
   milestones: [10, 15]
   net:
     name: convnext_xlarge_in22ft1k
+    drop_rate: 0.2
+    drop_path_rate: 0.4
   output_dim: 2048
   optimizer: adamw
   multi_label_smoothing: True
-  drop_rate: 0.2
-  drop_path_rate: 0.4
 
 datamodule:
   batch_size: 28

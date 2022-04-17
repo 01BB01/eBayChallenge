@@ -25,6 +25,7 @@ def get_timm(name, pretrained=True, **kwargs):
     model = timm.create_model(
         name,
         pretrained=pretrained,
+        **kwargs,
     )
     return model
 
