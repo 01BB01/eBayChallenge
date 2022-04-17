@@ -34,9 +34,11 @@ model:
   output_dim: 2048
   optimizer: adamw
   multi_label_smoothing: True
+  drop_rate: 0.2
+  drop_path_rate: 0.4
 
 datamodule:
-  batch_size: 16
+  batch_size: 28
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
