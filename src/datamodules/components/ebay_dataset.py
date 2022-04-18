@@ -50,7 +50,7 @@ class eBayDataset(Dataset):
         if self.split_name in ["train", "val"]:
             sample["text"] = self.annotations["AUCT_TITL"][idx]
             if self.multi_label:
-                labels = torch.zeros(22295)
+                labels = torch.zeros(44175)
                 labels[self.multi_labels[idx]] = 1
                 sample["multi_label"] = labels
                 sample["fake"] = False
@@ -61,7 +61,7 @@ class eBayDataset(Dataset):
         else:
             sample["text"] = ""
             if self.multi_label:
-                labels = torch.zeros(22295)
+                labels = torch.zeros(44175)
                 sample["multi_label"] = labels
                 sample["fake"] = True
             else:
