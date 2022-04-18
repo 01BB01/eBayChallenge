@@ -682,6 +682,7 @@ class eBayMultiModule(LightningModule):
         optimizer: str = "adamw",
         multi_label_smoothing: bool = False,
         multi_scale_test: bool = False,
+        num_classes: int = 22295,
         **kwargs
     ):
         super().__init__()
@@ -691,7 +692,7 @@ class eBayMultiModule(LightningModule):
         self.save_hyperparameters(logger=False)
 
         self.net = net
-        self.linear = nn.Linear(output_dim, 22295, bias=False)
+        self.linear = nn.Linear(output_dim, num_classes, bias=False)
 
         # loss function
         if multi_label_smoothing:
@@ -843,7 +844,7 @@ class eBayMultiContrastiveModule(eBayMultiModule):
         self.text_net = kwargs["text_net"]
         if kwargs["output_dim"] != 768:
             self.linear_text = nn.Linear(kwargs["output_dim"], 768, bias=False)
-            self.linear = nn.Linear(768, 22295, bias=False)
+            self.linear = nn.Linear(768, self.hparams.num_classes, bias=False)
         else:
             self.linear_text = nn.Identity()
         self.contrastive_loss = ContrastiveLoss()

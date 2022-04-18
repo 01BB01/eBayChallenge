@@ -27,7 +27,7 @@ class eBayDataset(Dataset):
         self.aug_transform = aug_transform
         self.multi_label = multi_label
         if multi_label and split_name in ["train", "val"]:
-            with open(os.path.join(root_dir, split_name + "_multi_labels.json"), "r") as f:
+            with open(os.path.join(root_dir, split_name + "_multi_labels_10.json"), "r") as f:
                 self.multi_labels = json.load(f)
         else:
             self.multi_labels = None
