@@ -5,7 +5,7 @@
 
 defaults:
   - override /datamodule: ebay.yaml
-  - override /model: three_classes.yaml
+  - override /model: supconcon.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
   - override /trainer: ddp.yaml
@@ -14,29 +14,29 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "convnext_strong_baseline"
+name: "supconcon_convnext"
 
 seed: 42
 
 trainer:
-  min_epochs: 50
-  max_epochs: 50
-  gpus: 4
+  min_epochs: 40
+  max_epochs: 40
 
 model:
-  lr: 0.00001
-  classifier_lr_multiplier: 10.0
+  lr: 0.0001
   weight_decay: 0.0001
+  text_lr_multiplier: 0.1
   warmup_steps: 26005
   milestones: [20, 35]
   net:
     name: convnext_base_in22ft1k
+  text_net:
+    name: roberta-base
   output_dim: 1024
-  label_smoothing: 0.1
-  optimizer: adamw
 
 datamodule:
-  batch_size: 64
+  batch_size: 32
+  retrieval_setting: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
       size: [224, 224]
@@ -48,7 +48,11 @@ datamodule:
       mean: [0.485, 0.456, 0.406]
       std: [0.229, 0.224, 0.225]
     - _target_: torchvision.transforms.RandomErasing
-      p: 0.25
+      p: 0.1
+
+callbacks:
+  model_checkpoint:
+    monitor: "val/mean_rk"
 
 logger:
   wandb:

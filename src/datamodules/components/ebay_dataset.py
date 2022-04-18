@@ -1,14 +1,23 @@
+import json
 import os
 from collections import defaultdict
 
 import numpy as np
 import pandas as pd
+import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
 
 class eBayDataset(Dataset):
-    def __init__(self, split_name, transform=None, root_dir="./data/eBay/", aug_transform=None):
+    def __init__(
+        self,
+        split_name,
+        transform=None,
+        root_dir="./data/eBay/",
+        aug_transform=None,
+        multi_label=False,
+    ):
         super().__init__()
         csv_file = split_name + ".csv"
         self.root_dir = root_dir
@@ -16,6 +25,11 @@ class eBayDataset(Dataset):
         self.annotations = pd.read_csv(os.path.join(root_dir, "metadata", csv_file)).to_dict()
         self.transform = transform
         self.aug_transform = aug_transform
+        if multi_label:
+            with open(os.path.join(root_dir, split_name + "_multi_labels.json"), "r") as f:
+                self.multi_labels = json.load(f)
+        else:
+            self.multi_labels = None
 
     def __len__(self):
         return len(self.annotations["UUID"])
@@ -33,10 +47,16 @@ class eBayDataset(Dataset):
             sample["aug_image"] = aug_image
 
         if self.split_name in ["train", "val"]:
-            sample["label_1"] = self.annotations["META_CATEG_ID"][idx]
-            sample["label_2"] = self.annotations["CATEG_LVL2_ID"][idx]
-            sample["label_3"] = self.annotations["LEAF_CATEG_ID"][idx]
-            sample["text"] = self.annotations["AUCT_TITL"][idx]
+            if self.multi_labels is not None:
+                labels = torch.zeros(22295)
+                labels[self.multi_labels[idx]] = 1
+                sample["multi_label"] = labels
+                sample["text"] = self.annotations["AUCT_TITL"][idx]
+            else:
+                sample["label_1"] = self.annotations["META_CATEG_ID"][idx]
+                sample["label_2"] = self.annotations["CATEG_LVL2_ID"][idx]
+                sample["label_3"] = self.annotations["LEAF_CATEG_ID"][idx]
+                sample["text"] = self.annotations["AUCT_TITL"][idx]
 
         return sample
 
