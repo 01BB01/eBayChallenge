@@ -30,7 +30,7 @@ model:
   warmup_steps: 29720
   milestones: [10, 15]
   net:
-    name: swin_base_patch4_window7_224_in22k
+    name: swin_large_patch4_window12_384_in22k
     drop_rate: 0.2
     drop_path_rate: 0.4
   output_dim: 1536
@@ -42,7 +42,7 @@ datamodule:
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
-      size: [224, 224]
+      size: [384, 384]
       scale: [0.2, 1.0]
     - _target_: torchvision.transforms.RandomHorizontalFlip
     - _target_: torchvision.transforms.TrivialAugmentWide
@@ -52,6 +52,13 @@ datamodule:
       std: [0.229, 0.224, 0.225]
     - _target_: torchvision.transforms.RandomErasing
       p: 0.25
+  val_transforms:
+    - _target_: torchvision.transforms.Resize
+      size: [384, 384]
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
 
 logger:
   wandb:
