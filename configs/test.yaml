@@ -36,3 +36,10 @@ name: "baseline"
 ckpt_path: ???
 
 save_sim: False
+
+save_features: False
+
+save_train_features: False
+
+datamodule:
+  load_train_for_predict: ${save_train_features}
