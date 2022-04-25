@@ -117,16 +117,16 @@ def test(config: DictConfig) -> None:
             torch.save(res, os.path.join(config.csv_save_dir, f"{prefix}_dist_and_uuid.pth"))
 
     if config.get("save_features") or config.get("save_train_features"):
+        res = {"query_uuid": query_uuid, "query_feats": query_feats}
+        torch.save(res, os.path.join(config.csv_save_dir, "query_feats_and_uuid.pth"))
         res = {
-            "query_uuid": query_uuid,
             "index_uuid": index_uuid,
-            "query_feats": query_feats,
             "index_feats": index_feats,
         }
+        torch.save(res, os.path.join(config.csv_save_dir, "index_feats_and_uuid.pth"))
 
         if config.get("save_train_features"):
             # inference train
             train_feats, train_uuid = gather_filed(train_predictions)
-            res.update({"train_uuid": train_uuid, "train_feats": train_feats})
-
-        torch.save(res, os.path.join(config.csv_save_dir, "feats_and_uuid.pth"))
+            res = {"train_uuid": train_uuid, "train_feats": train_feats}
+            torch.save(res, os.path.join(config.csv_save_dir, "train_feats_and_uuid.pth"))
