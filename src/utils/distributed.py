@@ -122,6 +122,30 @@ def gather_tensor(tensor):
     return tensor_list
 
 
+def gather_tensor_cat(tensor):
+    world_size = get_world_size()
+
+    if world_size < 2:
+        return tensor
+
+    with torch.no_grad():
+        tensor_list = []
+        dist.all_gather(tensor_list, tensor)
+        tensor_list = torch.cat(tensor_list, dim=0)
+    return tensor_list
+
+
+def gather_object_cat(obj):
+    world_size = get_world_size()
+
+    if world_size < 2:
+        return obj
+
+    obj_list = []
+    dist.all_gather_object(obj_list, obj)
+    return obj_list
+
+
 def gather_tensor_along_batch(tensor, dim=0):
     world_size = get_world_size()
 

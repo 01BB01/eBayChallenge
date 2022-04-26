@@ -10,6 +10,7 @@ from pytorch_lightning import LightningDataModule, LightningModule, Trainer, see
 from pytorch_lightning.loggers import LightningLoggerBase
 
 from src import utils
+from src.utils.distributed import gather_object_cat, gather_tensor_cat, is_main
 
 log = utils.get_logger(__name__)
 
@@ -92,50 +93,62 @@ def test(config: DictConfig) -> None:
     query_feats, query_uuid = gather_filed(query_predictions)
     index_feats, index_uuid = gather_filed(index_predictions)
 
-    if config.get("whitening"):
-        index_feats, index_mean, index_wm = whitening(index_feats)
-        query_feats, _, _ = whitening(query_feats, index_mean, index_wm)
+    query_feats = gather_tensor_cat(query_feats)
+    index_feats = gather_tensor_cat(index_feats)
+    query_uuid = gather_object_cat(query_uuid)
+    index_uuid = gather_object_cat(index_uuid)
 
-    cdist_matrix = []
-    edist_matrix = []
-    chunk_size = 5000
-    if not multi_scale_test:
-        query_feats_norm = F.normalize(query_feats, p=2, dim=-1)
-    else:
-        query_feats_norm = query_feats
+    print(query_feats.shape, index_feats.shape, "+++++++++++++++++")
+    print(len(set(query_uuid)), len(set(index_uuid)))
 
-    for i in range(index_feats.shape[0] // chunk_size + 1):
-        print(f"{i}/{index_feats.shape[0] // chunk_size}", end="\r")
-        start = i * chunk_size
-        end = start + chunk_size
-        edist = -torch.cdist(query_feats, index_feats[start:end])  # q * 5000
-        edist_matrix.append(edist)
+    if is_main():
 
+        if config.get("whitening"):
+            index_feats, index_mean, index_wm = whitening(index_feats)
+            query_feats, _, _ = whitening(query_feats, index_mean, index_wm)
+
+        cdist_matrix = []
+        edist_matrix = []
+        chunk_size = 5000
         if not multi_scale_test:
-            index_feats_norm = F.normalize(index_feats[start:end], p=2, dim=-1)
+            query_feats_norm = F.normalize(query_feats, p=2, dim=-1)
         else:
-            index_feats_norm = index_feats[start:end]
-        cdist = query_feats_norm @ index_feats_norm.t()
-        cdist_matrix.append(cdist)
+            query_feats_norm = query_feats
 
-    if not os.path.isabs(config.csv_save_dir):
-        config.csv_save_dir = os.path.join(hydra.utils.get_original_cwd(), config.csv_save_dir)
+        for i in range(index_feats.shape[0] // chunk_size + 1):
+            print(f"{i}/{index_feats.shape[0] // chunk_size}", end="\r")
+            start = i * chunk_size
+            end = start + chunk_size
+            edist = -torch.cdist(query_feats, index_feats[start:end])  # q * 5000
+            edist_matrix.append(edist)
 
-    for prefix, dist_matrix in zip(["cosine", "euclidean"], [cdist_matrix, edist_matrix]):
-        dist_matrix = torch.cat(dist_matrix, dim=1)  # q * i
-        _, pred_indices = torch.topk(dist_matrix, k=10, dim=1, largest=True, sorted=True)
+            if not multi_scale_test:
+                index_feats_norm = F.normalize(index_feats[start:end], p=2, dim=-1)
+            else:
+                index_feats_norm = index_feats[start:end]
+            cdist = query_feats_norm @ index_feats_norm.t()
+            cdist_matrix.append(cdist)
 
-        log.info("Writing predictions csv!")
-        df = pd.DataFrame(zip(query_uuid, pred_indices.cpu().numpy()))
-        df[1] = df[1].apply(lambda x: " ".join([index_uuid[i] for i in x]))
         if not os.path.isabs(config.csv_save_dir):
             config.csv_save_dir = os.path.join(hydra.utils.get_original_cwd(), config.csv_save_dir)
-        df.to_csv(
-            os.path.join(config.csv_save_dir, f"{prefix}_predictions.csv"),
-            index=False,
-            header=False,
-        )
 
-        if config.get("save_sim"):
-            res = {prefix: dist_matrix, "query_uuid": query_uuid, "index_uuid": index_uuid}
-            torch.save(res, os.path.join(config.csv_save_dir, f"{prefix}_dist_and_uuid.pth"))
+        for prefix, dist_matrix in zip(["cosine", "euclidean"], [cdist_matrix, edist_matrix]):
+            dist_matrix = torch.cat(dist_matrix, dim=1)  # q * i
+            _, pred_indices = torch.topk(dist_matrix, k=10, dim=1, largest=True, sorted=True)
+
+            log.info("Writing predictions csv!")
+            df = pd.DataFrame(zip(query_uuid, pred_indices.cpu().numpy()))
+            df[1] = df[1].apply(lambda x: " ".join([index_uuid[i] for i in x]))
+            if not os.path.isabs(config.csv_save_dir):
+                config.csv_save_dir = os.path.join(
+                    hydra.utils.get_original_cwd(), config.csv_save_dir
+                )
+            df.to_csv(
+                os.path.join(config.csv_save_dir, f"{prefix}_predictions.csv"),
+                index=False,
+                header=False,
+            )
+
+            if config.get("save_sim"):
+                res = {prefix: dist_matrix, "query_uuid": query_uuid, "index_uuid": index_uuid}
+                torch.save(res, os.path.join(config.csv_save_dir, f"{prefix}_dist_and_uuid.pth"))
