@@ -95,10 +95,10 @@ def test(config: DictConfig) -> None:
 
     query_feats = gather_tensor_cat(query_feats)
     index_feats = gather_tensor_cat(index_feats)
+    print(query_feats.shape, index_feats.shape, "+++++++++++++++++")
     query_uuid = gather_object_cat(query_uuid)
     index_uuid = gather_object_cat(index_uuid)
 
-    print(query_feats.shape, index_feats.shape, "+++++++++++++++++")
     print(len(set(query_uuid)), len(set(index_uuid)))
 
     if is_main():

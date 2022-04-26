@@ -122,17 +122,31 @@ def gather_tensor(tensor):
     return tensor_list
 
 
-def gather_tensor_cat(tensor):
+def gather_tensor_cat(q):
     world_size = get_world_size()
+    device = f"cuda:{get_rank()}"
 
     if world_size < 2:
-        return tensor
+        return q
 
     with torch.no_grad():
-        tensor_list = []
-        dist.all_gather(tensor_list, tensor)
-        tensor_list = torch.cat(tensor_list, dim=0)
-    return tensor_list
+        local_size = torch.tensor(q.size(), device=device)
+        all_sizes = [torch.zeros_like(local_size) for _ in range(world_size)]
+        dist.all_gather(all_sizes, local_size)
+        max_size = max(all_sizes)
+
+        size_diff = max_size.item() - local_size.item()
+        if size_diff:
+            padding = torch.zeros(size_diff, device=device, dtype=q.dtype)
+            q = torch.cat((q, padding))
+
+        all_qs_padded = [torch.zeros_like(q) for _ in range(world_size)]
+        dist.all_gather(all_qs_padded, q)
+        all_qs = []
+        for q, size in zip(all_qs_padded, all_sizes):
+            all_qs.append(q[:size])
+        all_qs = torch.cat(all_qs, dim=0)
+        return all_qs
 
 
 def gather_object_cat(obj):
