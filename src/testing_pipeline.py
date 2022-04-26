@@ -120,6 +120,7 @@ def test(config: DictConfig) -> None:
 
             if config.get("re_ranking"):
                 if prefix == "cosine":
+                    log.info("Applying re-ranking to cosine distance...")
                     _, pred_indices = torch.topk(
                         dist_matrix, k=100, dim=1, largest=True, sorted=True
                     )
@@ -133,7 +134,6 @@ def test(config: DictConfig) -> None:
 
                     new_dists = []
                     for qidx in range(query_feats_norm.size(0)):
-                        log.info("Applying re-ranking...")
                         print(qidx, end="\r")
                         new_dists.append(
                             re_ranking(
@@ -151,8 +151,8 @@ def test(config: DictConfig) -> None:
                 else:
                     # FIXME
                     log.info("Current re-ranking doesn't support euclidean distance!")
-
-            _, pred_indices = torch.topk(dist_matrix, k=10, dim=1, largest=True, sorted=True)
+            else:
+                _, pred_indices = torch.topk(dist_matrix, k=10, dim=1, largest=True, sorted=True)
 
             log.info("Writing predictions csv!")
             df = pd.DataFrame(zip(query_uuid, pred_indices.cpu().numpy()))
