@@ -10,7 +10,7 @@ from pytorch_lightning import LightningDataModule, LightningModule, Trainer, see
 from pytorch_lightning.loggers import LightningLoggerBase
 
 from src import utils
-from src.utils.distributed import gather_object_cat, gather_tensor_cat, is_main
+from src.utils.distributed import all_gather, is_main
 
 log = utils.get_logger(__name__)
 
@@ -93,11 +93,11 @@ def test(config: DictConfig) -> None:
     query_feats, query_uuid = gather_filed(query_predictions)
     index_feats, index_uuid = gather_filed(index_predictions)
 
-    query_feats = gather_tensor_cat(query_feats)
-    index_feats = gather_tensor_cat(index_feats)
+    query_feats = torch.cat(all_gather(query_feats), dim=0)
+    index_feats = torch.cat(all_gather(index_feats), dim=0)
     print(query_feats.shape, index_feats.shape, "+++++++++++++++++")
-    query_uuid = gather_object_cat(query_uuid)
-    index_uuid = gather_object_cat(index_uuid)
+    query_uuid = [y for x in all_gather(query_uuid) for y in x]
+    index_uuid = [y for x in all_gather(index_uuid) for y in x]
 
     print(len(set(query_uuid)), len(set(index_uuid)))
 
