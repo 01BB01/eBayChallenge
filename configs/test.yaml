@@ -38,3 +38,5 @@ ckpt_path: ???
 save_sim: False
 
 whitening: False
+
+re_ranking: False

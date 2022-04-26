@@ -2,6 +2,7 @@ import os
 from typing import List
 
 import hydra
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
@@ -11,6 +12,7 @@ from pytorch_lightning.loggers import LightningLoggerBase
 
 from src import utils
 from src.utils.distributed import all_gather, is_main
+from src.utils.post_processing import re_ranking, whitening
 
 log = utils.get_logger(__name__)
 
@@ -22,22 +24,6 @@ def gather_filed(predictions):
         feats.extend(pred["feats"])
         uuid.extend(pred["uuid"])
     return torch.stack(feats), uuid
-
-
-def whitening(x, mean=None, wm=None):
-    x = x.t()  # (N, D) -> (D, N)
-    if mean is None:
-        mean = x.mean(1, keepdim=True)
-    x_mean = x - mean
-    if wm is None:
-        sigma = x_mean.matmul(x_mean.t()) / x.size(1) + 1e-7 * torch.eye(x.size(0)).to(
-            x.device
-        )  # (D, D)
-        u, eig, _ = sigma.svd()  # D
-        scale = eig.rsqrt()  # D
-        wm = u.matmul(scale.diag()).matmul(u.t())  # (D, D)
-    y = wm.matmul(x_mean)  # (D, D) @ (D, N) = D, N
-    return y.t(), mean, wm  # (N, D)
 
 
 def test(config: DictConfig) -> None:
@@ -95,11 +81,8 @@ def test(config: DictConfig) -> None:
 
     query_feats = torch.cat(all_gather(query_feats), dim=0)
     index_feats = torch.cat(all_gather(index_feats), dim=0)
-    print(query_feats.shape, index_feats.shape, "+++++++++++++++++")
     query_uuid = [y for x in all_gather(query_uuid) for y in x]
     index_uuid = [y for x in all_gather(index_uuid) for y in x]
-
-    print(len(set(query_uuid)), len(set(index_uuid)))
 
     if is_main():
 
@@ -134,6 +117,41 @@ def test(config: DictConfig) -> None:
 
         for prefix, dist_matrix in zip(["cosine", "euclidean"], [cdist_matrix, edist_matrix]):
             dist_matrix = torch.cat(dist_matrix, dim=1)  # q * i
+
+            if config.get("re_ranking"):
+                if prefix == "cosine":
+                    _, pred_indices = torch.topk(
+                        dist_matrix, k=100, dim=1, largest=True, sorted=True
+                    )
+                    topk_index_feats = index_feats[pred_indices]
+                    topk_norm = F.normalize(topk_index_feats, p=2, dim=-1)
+
+                    g_g_dist = 2 - 2 * (topk_norm @ topk_norm.transpose(1, 2))
+                    q_g_dist = 2 - 2 * (query_feats_norm.unsqueeze(1) @ topk_norm.transpose(1, 2))
+                    q_g_dist = q_g_dist.squeeze(1)
+                    q_q_dist = 2 - 2 * query_feats_norm @ query_feats_norm.t()
+
+                    new_dists = []
+                    for qidx in range(query_feats_norm.size(0)):
+                        log.info("Applying re-ranking...")
+                        print(qidx, end="\r")
+                        new_dists.append(
+                            re_ranking(
+                                q_g_dist[qidx].view(1, -1),
+                                q_q_dist[qidx, qidx].view(1, 1),
+                                g_g_dist[qidx],
+                            )
+                        )
+                    new_dists = np.stack(new_dists)
+                    rerank_dists = torch.from_numpy(new_dists).squeeze()
+                    _, rerank_indices = torch.topk(
+                        rerank_dists, k=10, dim=1, largest=False, sorted=True
+                    )
+                    pred_indices = torch.gather(pred_indices, 1, rerank_indices)
+                else:
+                    # FIXME
+                    log.info("Current re-ranking doesn't support euclidean distance!")
+
             _, pred_indices = torch.topk(dist_matrix, k=10, dim=1, largest=True, sorted=True)
 
             log.info("Writing predictions csv!")
