@@ -23,6 +23,22 @@ def gather_filed(predictions):
     return torch.stack(feats), uuid
 
 
+def whitening(x, mean=None, wm=None):
+    x = x.t()  # (N, D) -> (D, N)
+    if mean is None:
+        mean = x.mean(1, keepdim=True)
+    x_mean = x - mean
+    if wm is None:
+        sigma = x_mean.matmul(x_mean.t()) / x.size(1) + 1e-7 * torch.eye(x.size(0)).to(
+            x.device
+        )  # (D, D)
+        u, eig, _ = sigma.svd()  # D
+        scale = eig.rsqrt()  # D
+        wm = u.matmul(scale.diag()).matmul(u.t())  # (D, D)
+    y = wm.matmul(x_mean)  # (D, D) @ (D, N) = D, N
+    return y.t(), mean, wm  # (N, D)
+
+
 def test(config: DictConfig) -> None:
     """Contains minimal example of the testing pipeline.
     Evaluates given checkpoint on a testset.
@@ -65,7 +81,7 @@ def test(config: DictConfig) -> None:
     # Log hyperparameters
     trainer.logger.log_hyperparams({"ckpt_path": config.ckpt_path})
 
-    multi_scale_test = config.model.multi_scale_test
+    multi_scale_test = config.model.get("multi_scale_test", False)
 
     log.info("Starting testing!")
     query_predictions, index_predictions = trainer.predict(
@@ -75,6 +91,10 @@ def test(config: DictConfig) -> None:
     # FIXME: more elegant solution
     query_feats, query_uuid = gather_filed(query_predictions)
     index_feats, index_uuid = gather_filed(index_predictions)
+
+    if config.get("whitening"):
+        index_feats, index_mean, index_wm = whitening(index_feats)
+        query_feats, _, _ = whitening(query_feats, index_mean, index_wm)
 
     cdist_matrix = []
     edist_matrix = []

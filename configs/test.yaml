@@ -36,3 +36,5 @@ name: "baseline"
 ckpt_path: ???
 
 save_sim: False
+
+whitening: False
