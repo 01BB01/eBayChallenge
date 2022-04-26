@@ -190,7 +190,22 @@ class eBayModule(LightningModule):
             weight_decay=self.hparams.weight_decay,
             lr_multiplier=self.hparams.classifier_lr_multiplier,
         )
-        return net_params + linear_1_params + linear_2_params + linear_3_params
+        if self.hparams.linear_dim != 0:
+            linear_feat_params = get_configured_parameters(
+                self.linear_feat,
+                base_lr=self.hparams.lr,
+                weight_decay=self.hparams.weight_decay,
+                lr_multiplier=self.hparams.classifier_lr_multiplier,
+            )
+            return (
+                net_params
+                + linear_1_params
+                + linear_2_params
+                + linear_3_params
+                + linear_feat_params
+            )
+        else:
+            return net_params + linear_1_params + linear_2_params + linear_3_params
 
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.

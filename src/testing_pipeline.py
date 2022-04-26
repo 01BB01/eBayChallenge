@@ -71,9 +71,14 @@ def test(config: DictConfig) -> None:
     multi_scale_test = config.model.get("multi_scale_test", False)
 
     log.info("Starting testing!")
-    query_predictions, index_predictions = trainer.predict(
-        model=model, datamodule=datamodule, ckpt_path=config.ckpt_path
-    )
+    if config.get("save_train_features"):
+        query_predictions, index_predictions, train_predictions = trainer.predict(
+            model=model, datamodule=datamodule, ckpt_path=config.ckpt_path
+        )
+    else:
+        query_predictions, index_predictions = trainer.predict(
+            model=model, datamodule=datamodule, ckpt_path=config.ckpt_path
+        )
 
     # FIXME: more elegant solution
     query_feats, query_uuid = gather_filed(query_predictions)
@@ -170,3 +175,18 @@ def test(config: DictConfig) -> None:
             if config.get("save_sim"):
                 res = {prefix: dist_matrix, "query_uuid": query_uuid, "index_uuid": index_uuid}
                 torch.save(res, os.path.join(config.csv_save_dir, f"{prefix}_dist_and_uuid.pth"))
+
+            if config.get("save_features") or config.get("save_train_features"):
+                res = {"query_uuid": query_uuid, "query_feats": query_feats}
+                torch.save(res, os.path.join(config.csv_save_dir, "query_feats_and_uuid.pth"))
+                res = {
+                    "index_uuid": index_uuid,
+                    "index_feats": index_feats,
+                }
+                torch.save(res, os.path.join(config.csv_save_dir, "index_feats_and_uuid.pth"))
+
+                if config.get("save_train_features"):
+                    # inference train
+                    train_feats, train_uuid = gather_filed(train_predictions)
+                    res = {"train_uuid": train_uuid, "train_feats": train_feats}
+                    torch.save(res, os.path.join(config.csv_save_dir, "train_feats_and_uuid.pth"))

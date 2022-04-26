@@ -22,6 +22,7 @@ class eBayDataModule(LightningDataModule):
         index_trainable: bool = False,
         multi_label: bool = False,
         concat_train_index: bool = False,
+        load_train_for_predict: bool = False,
     ):
         super().__init__()
 
@@ -40,6 +41,7 @@ class eBayDataModule(LightningDataModule):
         self.data_val: Optional[Dataset] = None
         self.data_index: Optional[Dataset] = None
         self.data_query: Optional[Dataset] = None
+        self.data_train_for_predict: Optional[Dataset] = None
 
     @property
     def num_classes_1(self) -> int:
@@ -108,6 +110,10 @@ class eBayDataModule(LightningDataModule):
             self.data_query = eBayDataset(
                 self.hparams.query_key, self.val_transforms, self.hparams.data_dir
             )
+            if self.hparams.load_train_for_predict:
+                self.data_train_for_predict = eBayDataset(
+                    "train", self.val_transforms, self.hparams.data_dir
+                )
 
     def train_dataloader(self):
         return DataLoader(
@@ -154,4 +160,13 @@ class eBayDataModule(LightningDataModule):
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
         )
+        if self.hparams.load_train_for_predict:
+            train_loader = DataLoader(
+                dataset=self.data_train_for_predict,
+                batch_size=self.hparams.batch_size,
+                num_workers=self.hparams.num_workers,
+                pin_memory=self.hparams.pin_memory,
+                shuffle=False,
+            )
+            return query_loader, index_loader, train_loader
         return query_loader, index_loader

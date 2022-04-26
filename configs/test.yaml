@@ -40,3 +40,10 @@ save_sim: False
 whitening: False
 
 re_ranking: False
+
+save_features: False
+
+save_train_features: False
+
+datamodule:
+  load_train_for_predict: ${save_train_features}
