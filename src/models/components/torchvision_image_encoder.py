@@ -25,6 +25,7 @@ def get_timm(name, pretrained=True, **kwargs):
     model = timm.create_model(
         name,
         pretrained=pretrained,
+        **kwargs,
     )
     return model
 
@@ -37,12 +38,16 @@ class TorchvisionImageEncoder(nn.Module):
         zero_init_residual: bool = False,
         num_output_features: int = 1,
         pool_type: str = "avg",
+        drop_rate: float = 0.0,
+        drop_path_rate: float = 0.0,
     ):
         super().__init__()
 
         self.is_timm = "vit" in name or "swin" in name or "convnext" in name
         if self.is_timm:
-            model = get_timm(name, pretrained=pretrained)
+            model = get_timm(
+                name, pretrained=pretrained, drop_rate=drop_rate, drop_path_rate=drop_path_rate
+            )
             self.model = model
             # remove ImageNet classifier
             self.model.reset_classifier(-1)

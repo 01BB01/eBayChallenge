@@ -25,7 +25,8 @@ class eBayDataset(Dataset):
         self.annotations = pd.read_csv(os.path.join(root_dir, "metadata", csv_file)).to_dict()
         self.transform = transform
         self.aug_transform = aug_transform
-        if multi_label:
+        self.multi_label = multi_label
+        if multi_label and split_name in ["train", "val"]:
             with open(os.path.join(root_dir, split_name + "_multi_labels.json"), "r") as f:
                 self.multi_labels = json.load(f)
         else:
@@ -47,16 +48,26 @@ class eBayDataset(Dataset):
             sample["aug_image"] = aug_image
 
         if self.split_name in ["train", "val"]:
-            if self.multi_labels is not None:
+            sample["text"] = self.annotations["AUCT_TITL"][idx]
+            if self.multi_label:
                 labels = torch.zeros(22295)
                 labels[self.multi_labels[idx]] = 1
                 sample["multi_label"] = labels
-                sample["text"] = self.annotations["AUCT_TITL"][idx]
+                sample["fake"] = False
             else:
                 sample["label_1"] = self.annotations["META_CATEG_ID"][idx]
                 sample["label_2"] = self.annotations["CATEG_LVL2_ID"][idx]
                 sample["label_3"] = self.annotations["LEAF_CATEG_ID"][idx]
-                sample["text"] = self.annotations["AUCT_TITL"][idx]
+        else:
+            sample["text"] = ""
+            if self.multi_label:
+                labels = torch.zeros(22295)
+                sample["multi_label"] = labels
+                sample["fake"] = True
+            else:
+                sample["label_1"] = -1
+                sample["label_2"] = -1
+                sample["label_3"] = -1
 
         return sample
 

@@ -5,7 +5,7 @@
 
 defaults:
   - override /datamodule: ebay.yaml
-  - override /model: multi_label.yaml
+  - override /model: multi_label_selfdistill.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
   - override /trainer: ddp.yaml
@@ -14,36 +14,33 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "multilabel_convnextxl"
+name: "multilabelselfdistill_baseline"
 
 seed: 42
 
 trainer:
-  min_epochs: 20
-  max_epochs: 20
-  gpus: 8
+  min_epochs: 50
+  max_epochs: 50
 
 model:
   lr: 0.0001
   classifier_lr_multiplier: 10.0
-  weight_decay: 0.0005
-  warmup_steps: 29720
-  milestones: [10, 15]
+  weight_decay: 0.0001
+  warmup_steps: 26005
+  milestones: [45]
   net:
-    name: convnext_xlarge_in22ft1k
-    drop_rate: 0.2
-    drop_path_rate: 0.4
+    name: resnet50
   output_dim: 2048
   optimizer: adamw
   multi_label_smoothing: True
 
 datamodule:
-  batch_size: 28
+  batch_size: 128
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
       size: [224, 224]
-      scale: [0.2, 1.0]
+      scale: [0.5, 1.0]
     - _target_: torchvision.transforms.RandomHorizontalFlip
     - _target_: torchvision.transforms.TrivialAugmentWide
     - _target_: torchvision.transforms.ToTensor
