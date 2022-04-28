@@ -809,7 +809,7 @@ class eBayMultiModule(LightningModule):
         linear_params = get_configured_parameters(
             self.linear,
             base_lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay,
+            weight_decay=0.0,
             lr_multiplier=self.hparams.classifier_lr_multiplier,
         )
         return net_params + linear_params
