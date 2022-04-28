@@ -14,9 +14,9 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "multilabel_convnextxl"
+name: "multilabel_convnextxl_new"
 
-seed: 42
+seed: 0
 
 trainer:
   min_epochs: 20
@@ -25,14 +25,14 @@ trainer:
 
 model:
   lr: 0.0001
-  classifier_lr_multiplier: 10.0
-  weight_decay: 0.0005
+  classifier_lr_multiplier: 50.0
+  weight_decay: 0.0001
   warmup_steps: 29720
   milestones: [10, 15]
   net:
     name: convnext_xlarge_in22ft1k
-    drop_rate: 0.2
-    drop_path_rate: 0.4
+    drop_rate: 0.0
+    drop_path_rate: 0.6
   output_dim: 2048
   optimizer: adamw
   multi_label_smoothing: True
