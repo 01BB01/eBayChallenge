@@ -92,8 +92,7 @@ def test(config: DictConfig) -> None:
     if is_main():
 
         if config.get("whitening"):
-            index_feats, index_mean, index_wm = whitening(index_feats)
-            query_feats, _, _ = whitening(query_feats, index_mean, index_wm)
+            query_feats, index_feats = whitening(query_feats, index_feats)
 
         cdist_matrix = []
         edist_matrix = []
@@ -162,10 +161,6 @@ def test(config: DictConfig) -> None:
             log.info("Writing predictions csv!")
             df = pd.DataFrame(zip(query_uuid, pred_indices.cpu().numpy()))
             df[1] = df[1].apply(lambda x: " ".join([index_uuid[i] for i in x]))
-            if not os.path.isabs(config.csv_save_dir):
-                config.csv_save_dir = os.path.join(
-                    hydra.utils.get_original_cwd(), config.csv_save_dir
-                )
             df.to_csv(
                 os.path.join(config.csv_save_dir, f"{prefix}_predictions.csv"),
                 index=False,

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 
-def whitening(x, mean=None, wm=None):
+def _whitening(x, mean=None, wm=None):
     x = x.t()  # (N, D) -> (D, N)
     if mean is None:
         mean = x.mean(1, keepdim=True)
@@ -16,6 +16,12 @@ def whitening(x, mean=None, wm=None):
         wm = u.matmul(scale.diag()).matmul(u.t())  # (D, D)
     y = wm.matmul(x_mean)  # (D, D) @ (D, N) = D, N
     return y.t(), mean, wm  # (N, D)
+
+
+def whitening(query_feats, index_feats):
+    index_feats, index_mean, index_wm = _whitening(index_feats)
+    query_feats, _, _ = _whitening(query_feats, index_mean, index_wm)
+    return query_feats, index_feats
 
 
 def re_ranking(q_g_dist, q_q_dist, g_g_dist, k1=20, k2=6, lambda_value=0.3):
