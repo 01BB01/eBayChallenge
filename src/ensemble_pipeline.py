@@ -97,7 +97,7 @@ def ensemble(config: DictConfig) -> None:
     df = pd.DataFrame(zip(query_uuid, pred_indices.cpu().numpy()))
     df[1] = df[1].apply(lambda x: " ".join([index_uuid[i] for i in x]))
     df.to_csv(
-        os.path.join(check_dir(config.csv_save_dir), "ensmble_predictions.csv"),
+        os.path.join(check_dir(config.csv_save_dir), "ensemble_predictions.csv"),
         index=False,
         header=False,
     )

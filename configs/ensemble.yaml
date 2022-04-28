@@ -1,6 +1,9 @@
 # @package _global_
 
 defaults:
+  - _self_
+  - log_dir: ensemble.yaml
+
   # enable color logging
   - override hydra/hydra_logging: colorlog
   - override hydra/job_logging: colorlog
