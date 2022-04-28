@@ -2,4 +2,4 @@
 
 hydra:
   run:
-    dir: logs/ensemble/runs/${name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: logs/ensemble/${now:%Y-%m-%d}_${now:%H-%M-%S}

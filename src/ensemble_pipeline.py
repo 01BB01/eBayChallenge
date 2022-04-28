@@ -71,10 +71,9 @@ def ensemble(config: DictConfig) -> None:
         _, pred_indices = torch.topk(dist_matrix, k=100, dim=1, largest=True, sorted=True)
         topk_index_feats = index_feats[pred_indices]
 
-        g_g_dist = 2 - 2 * (topk_index_feats @ topk_index_feats.transpose(1, 2))
-        q_g_dist = 2 - 2 * (query_feats.unsqueeze(1) @ topk_index_feats.transpose(1, 2))
-        q_g_dist = q_g_dist.squeeze(1)
-        q_q_dist = 2 - 2 * query_feats @ query_feats.t()
+        g_g_dist = torch.cdist(topk_index_feats, topk_index_feats)
+        q_g_dist = torch.cdist(query_feats.unsqueeze(1), topk_index_feats).squeeze(1)
+        q_q_dist = torch.cdist(query_feats, query_feats)
 
         new_dists = []
         for qidx in range(query_feats.size(0)):
