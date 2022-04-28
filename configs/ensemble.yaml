@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - _self_
+  - log_dir: ensemble.yaml
+
+  # enable color logging
+  - override hydra/hydra_logging: colorlog
+  - override hydra/job_logging: colorlog
+
+original_work_dir: ${hydra:runtime.cwd}
+
+feature_dirs:
+  - logs/evaluations/runs/multilabel_convnextxl_droppath/2022-04-27_21-39-52/
+  - logs/evaluations/runs/multilabel_swinl/2022-04-27_23-59-16/
+
+csv_save_dir: ${hydra:run.dir}
+
+print_config: True
+
+ignore_warnings: True
+
+whitening: True
+
+re_ranking: True
