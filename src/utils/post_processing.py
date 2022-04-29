@@ -24,7 +24,7 @@ def whitening(query_feats, index_feats):
     return query_feats, index_feats
 
 
-def re_ranking(q_g_dist, q_q_dist, g_g_dist, k1=20, k2=6, lambda_value=0.3):
+def re_ranking(q_g_dist, q_q_dist, g_g_dist, k1=10, k2=6, lambda_value=0.5):
     # The following naming, e.g. gallery_num, is different from outer scope.
     # Don't care about it.
     original_dist = np.concatenate(
