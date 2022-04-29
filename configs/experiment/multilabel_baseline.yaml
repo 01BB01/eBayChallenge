@@ -7,8 +7,8 @@ defaults:
   - override /datamodule: ebay.yaml
   - override /model: multi_label.yaml
   - override /callbacks: default.yaml
-  - override /logger: wandb.yaml
-  - override /trainer: ddp.yaml
+  - override /logger: null
+  - override /trainer: default.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
@@ -35,7 +35,7 @@ model:
   multi_label_smoothing: True
 
 datamodule:
-  batch_size: 128
+  batch_size: 32
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop

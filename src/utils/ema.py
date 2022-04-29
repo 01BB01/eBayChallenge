@@ -85,7 +85,8 @@ class EMA(pl.Callback):
             for key, value in self.get_state_dict(pl_module).items():
                 ema_value = self.ema_state_dict[key]
                 ema_value.copy_(
-                    self.decay * ema_value + (1.0 - self.decay) * value, non_blocking=True
+                    self.decay * ema_value + (1.0 - self.decay) * value.to(device=self.ema_device),
+                    non_blocking=True,
                 )
 
     @overrides

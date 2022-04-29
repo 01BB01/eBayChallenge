@@ -698,6 +698,7 @@ class eBayMultiModule(LightningModule):
         multi_label_smoothing: bool = False,
         multi_scale_test: bool = False,
         num_classes: int = 22295,
+        weight_balance: bool = False,
         **kwargs
     ):
         super().__init__()
@@ -711,7 +712,18 @@ class eBayMultiModule(LightningModule):
 
         # loss function
         if multi_label_smoothing:
-            self.criterion = torch.nn.CrossEntropyLoss()
+            if weight_balance:
+                cwd = hydra.utils.get_original_cwd()
+                class_nums = torch.Tensor(
+                    np.load(os.path.join(cwd, "src/models/class_4_nums.npy"))
+                )
+                assert num_classes == len(class_nums)
+                beta = 0.9999
+                weight = (1.0 - beta) / (1.0 - torch.pow(beta, class_nums))
+                weight = num_classes * weight / torch.sum(weight)
+                self.criterion = torch.nn.CrossEntropyLoss(weight=weight)
+            else:
+                self.criterion = torch.nn.CrossEntropyLoss()
         else:
             cwd = hydra.utils.get_original_cwd()
             pos_weight = torch.Tensor(np.load(os.path.join(cwd, "src/models/pos_weight.npy")))
