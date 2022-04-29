@@ -23,15 +23,16 @@ trainer:
   max_epochs: 50
 
 model:
-  lr: 0.00001
+  lr: 0.0001
   classifier_lr_multiplier: 10.0
   weight_decay: 0.0001
   warmup_steps: 26005
-  milestones: [20, 35]
+  milestones: [45]
   net:
     name: resnet50
   output_dim: 2048
   optimizer: adamw
+  multi_label_smoothing: True
 
 datamodule:
   batch_size: 128
