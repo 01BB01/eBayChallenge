@@ -25,3 +25,6 @@ ema:
   decay: 0.9999
   ema_device: cuda:0
   pin_memory: True
+  ema_evaluate: False
+  patterns:
+    - net
