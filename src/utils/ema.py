@@ -116,6 +116,11 @@ class EMA(pl.Callback):
         pl_module.load_state_dict(self.original_state_dict, strict=False)
 
     @overrides
+    def on_predict_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        assert self._ema_state_dict_ready
+        pl_module.load_state_dict(self.ema_state_dict, strict=False)
+
+    @overrides
     def on_save_checkpoint(
         self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", checkpoint: Dict[str, Any]
     ) -> dict:
