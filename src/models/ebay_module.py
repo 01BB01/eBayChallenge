@@ -699,6 +699,7 @@ class eBayMultiModule(LightningModule):
         multi_scale_test: bool = False,
         num_classes: int = 22295,
         weight_balance: bool = False,
+        poly_loss_weight: float = 0.0,
         **kwargs
     ):
         super().__init__()
@@ -750,6 +751,10 @@ class eBayMultiModule(LightningModule):
         if self.hparams.multi_label_smoothing:
             smooth_y = y / (torch.sum(y, dim=1, keepdim=True) + 1e-8)
             loss = self.criterion(logits, smooth_y)
+            if self.hparams.poly_loss_weight != 0:
+                pt = torch.softmax(logits, dim=-1) * smooth_y  # B * D
+                pt = 1 - torch.sum(pt, dim=-1)  # B
+                loss = loss + self.hparams.poly_loss_weight * torch.mean(pt)
             _, indices = torch.topk(logits, k=10, dim=1, largest=True, sorted=True)
             preds = torch.zeros_like(y)
             preds[torch.arange(preds.size(0))[:, None], indices] = 1
