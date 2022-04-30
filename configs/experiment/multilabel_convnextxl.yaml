@@ -6,7 +6,7 @@
 defaults:
   - override /datamodule: ebay.yaml
   - override /model: multi_label.yaml
-  - override /callbacks: default.yaml
+  - override /callbacks: ema.yaml
   - override /logger: wandb.yaml
   - override /trainer: ddp.yaml
 
@@ -14,9 +14,9 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "multilabel_convnextxl_new"
+name: "multilabel_convnextxl_ema"
 
-seed: 0
+seed: 666
 
 trainer:
   min_epochs: 20
@@ -25,14 +25,14 @@ trainer:
 
 model:
   lr: 0.0001
-  classifier_lr_multiplier: 50.0
+  classifier_lr_multiplier: 10.0
   weight_decay: 0.0001
   warmup_steps: 29720
   milestones: [10, 15]
   net:
     name: convnext_xlarge_in22ft1k
     drop_rate: 0.0
-    drop_path_rate: 0.6
+    drop_path_rate: 0.4
   output_dim: 2048
   optimizer: adamw
   multi_label_smoothing: True
