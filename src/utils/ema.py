@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pytorch_lightning as pl
 import torch
@@ -31,10 +31,14 @@ class EMA(pl.Callback):
         self,
         decay: float = 0.9999,
         ema_device: Optional[Union[torch.device, str]] = None,
-        pin_memory=True,
+        pin_memory: bool = True,
+        ema_evaluate: bool = True,
+        patterns: Optional[List[str]] = None,
     ):
         super().__init__()
         self.decay = decay
+        self.ema_evaluate = ema_evaluate
+        self.patterns = tuple(patterns) if patterns is not None else None
         self.ema_device: str = (
             f"{ema_device}" if ema_device else None
         )  # perform ema on different device from the model
@@ -45,17 +49,18 @@ class EMA(pl.Callback):
         self.original_state_dict = {}
         self._ema_state_dict_ready = False
 
-    @staticmethod
-    def get_state_dict(pl_module: pl.LightningModule):
+    def get_state_dict(self, pl_module: pl.LightningModule):
         """Returns state dictionary from pl_module. Override if you want filter some parameters and/or buffers out.
         For example, in pl_module has metrics, you don't want to return their parameters.
 
         code:
             # Only consider modules that can be seen by optimizers. Lightning modules can have others nn.Module attached
             # like losses, metrics, etc.
-            patterns_to_ignore = ("metrics1", "metrics2")
-            return dict(filter(lambda i: i[0].startswith(patterns), pl_module.state_dict().items()))
         """
+        if self.patterns is not None:
+            return dict(
+                filter(lambda i: i[0].startswith(self.patterns), pl_module.state_dict().items())
+            )
         return pl_module.state_dict()
 
     @overrides
@@ -91,7 +96,7 @@ class EMA(pl.Callback):
 
     @overrides
     def on_validation_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        if not self._ema_state_dict_ready:
+        if not self._ema_state_dict_ready or not self.ema_evaluate:
             return  # Skip Lightning sanity validation check if no ema weights has been loaded from a checkpoint.
 
         self.original_state_dict = deepcopy(self.get_state_dict(pl_module))
@@ -109,32 +114,16 @@ class EMA(pl.Callback):
 
     @overrides
     def on_validation_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-        if not self._ema_state_dict_ready:
+        if not self._ema_state_dict_ready or not self.ema_evaluate:
             return  # Skip Lightning sanity validation check if no ema weights has been loaded from a checkpoint.
 
         # Replace EMA weights with training weights
         pl_module.load_state_dict(self.original_state_dict, strict=False)
 
     @overrides
-    def on_predict_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        assert self._ema_state_dict_ready
-        pl_module.load_state_dict(self.ema_state_dict, strict=False)
-
-    @overrides
     def on_save_checkpoint(
         self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", checkpoint: Dict[str, Any]
     ) -> dict:
-        return {
-            "ema_state_dict": self.ema_state_dict,
-            "_ema_state_dict_ready": self._ema_state_dict_ready,
-        }
-
-    @overrides
-    def on_load_checkpoint(
-        self,
-        trainer: "pl.Trainer",
-        pl_module: "pl.LightningModule",
-        callback_state: Dict[str, Any],
-    ) -> None:
-        self._ema_state_dict_ready = callback_state["_ema_state_dict_ready"]
-        self.ema_state_dict = callback_state["ema_state_dict"]
+        checkpoint["ema_state_dict"] = self.ema_state_dict
+        # checkpoint["_ema_state_dict_ready"] = self._ema_state_dict_ready
+        return checkpoint
