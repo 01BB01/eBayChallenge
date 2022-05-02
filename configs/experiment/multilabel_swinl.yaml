@@ -6,7 +6,7 @@
 defaults:
   - override /datamodule: ebay.yaml
   - override /model: multi_label.yaml
-  - override /callbacks: default.yaml
+  - override /callbacks: ema.yaml
   - override /logger: wandb.yaml
   - override /trainer: ddp.yaml
 
@@ -14,9 +14,9 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "multilabel_swinl"
+name: "multilabel_swinl_ema_poly"
 
-seed: 42
+seed: 888
 
 trainer:
   min_epochs: 20
@@ -26,19 +26,19 @@ trainer:
 model:
   lr: 0.0001
   classifier_lr_multiplier: 10.0
-  weight_decay: 0.0005
-  warmup_steps: 29720
+  weight_decay: 0.0001
+  warmup_steps: 59440
   milestones: [10, 15]
   net:
     name: swin_large_patch4_window12_384_in22k
-    drop_rate: 0.2
     drop_path_rate: 0.4
   output_dim: 1536
   optimizer: adamw
   multi_label_smoothing: True
+  poly_loss_weight: 2
 
 datamodule:
-  batch_size: 32
+  batch_size: 14
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
