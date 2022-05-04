@@ -14,9 +14,9 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "multilabel_swinl_ema_poly"
+name: "multilabel_swinl_ema_poly_0.5"
 
-seed: 888
+seed: 10086
 
 trainer:
   min_epochs: 20
@@ -35,7 +35,7 @@ model:
   output_dim: 1536
   optimizer: adamw
   multi_label_smoothing: True
-  poly_loss_weight: 2
+  poly_loss_weight: 0.5
 
 datamodule:
   batch_size: 14

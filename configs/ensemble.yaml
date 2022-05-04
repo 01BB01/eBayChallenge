@@ -11,10 +11,8 @@ defaults:
 original_work_dir: ${hydra:runtime.cwd}
 
 feature_dirs:
-  - logs/evaluations/runs/multilabel_convnextxl_drop/2022-04-28_21-03-03/
-  - logs/evaluations/runs/multilabel_convnextxl_droppath/2022-04-28_22-01-53/
-  - logs/evaluations/runs/multilabel_swinl/2022-04-27_23-59-16/
   - logs/evaluations/runs/multilabel_convnextxl_ema/2022-05-03_04-37-41/
+  - logs/evaluations/runs/multilabel_swinl_ema_poly/2022-05-05_01-15-24/
 
 csv_save_dir: ${hydra:run.dir}
 
