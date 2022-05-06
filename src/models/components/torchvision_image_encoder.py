@@ -44,7 +44,7 @@ class TorchvisionImageEncoder(nn.Module):
     ):
         super().__init__()
 
-        self.is_timm = "vit" in name or "swin" in name or "convnext" in name
+        self.is_timm = "beit" in name or "swin" in name or "convnext" in name
         if self.is_timm:
             model = get_timm(
                 name, pretrained=pretrained, drop_rate=drop_rate, drop_path_rate=drop_path_rate

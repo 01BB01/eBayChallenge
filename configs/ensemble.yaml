@@ -13,6 +13,7 @@ original_work_dir: ${hydra:runtime.cwd}
 feature_dirs:
   - logs/evaluations/runs/multilabel_convnextxl_ema/2022-05-03_04-37-41/
   - logs/evaluations/runs/multilabel_swinl_ema_poly/2022-05-05_01-15-24/
+  - logs/evaluations/runs/multilabel_swinl_ema_poly_0.5/2022-05-06_21-02-23/
 
 csv_save_dir: ${hydra:run.dir}
 
