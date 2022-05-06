@@ -20,6 +20,7 @@ def get_timm(name, pretrained=True, **kwargs):
         "convnext_base_384_in22ft1k",
         "convnext_large_384_in22ft1k",
         "convnext_xlarge_384_in22ft1k",
+        "beit_large_patch16_384",
     ]
     assert name in names
     model = timm.create_model(
