@@ -876,6 +876,54 @@ class eBayMultiModule(LightningModule):
                 pg["lr"] = lr_scale * self.hparams.lr
 
 
+class eBayMultiProxyModule(eBayMultiModule):
+    def step(self, batch: Any, return_feats: bool = False):
+        x = batch["image"]
+        y = batch["multi_label"]
+
+        feats = self.forward(x)
+
+        l2_feats = F.normalize(feats, p=2, dim=-1)
+        l2_weights = F.normalize(self.linear.weight, p=2, dim=-1)
+
+        smooth_y = y / (torch.sum(y, dim=1, keepdim=True) + 1e-8)
+
+        if self.hparams.proxy_method == "proxy_nca":
+            logits = (
+                -torch.cdist(l2_feats * self.hparams.scaling, l2_weights * self.hparams.scaling)
+                ** 2
+            )
+            loss = torch.sum(-smooth_y * torch.log_softmax(logits, dim=-1), dim=-1).mean()
+
+            if self.hparams.poly_loss_weight != 0:
+                pt = torch.softmax(logits, dim=-1) * smooth_y  # B * D
+                pt = 1 - torch.sum(pt, dim=-1)  # B
+                loss = loss + self.hparams.poly_loss_weight * torch.mean(pt)
+        else:  # proxy anchor
+            logits = F.linear(l2_feats, l2_weights)
+            pos_exp = torch.exp(-self.hparams.scaling * (logits - self.hparams.margin))
+            neg_exp = torch.exp(self.hparams.scaling * (logits + self.hparams.margin))
+
+            with_pos_proxies = torch.nonzero(y.sum(dim=0) != 0).squeeze(dim=1)
+            num_valid_proxies = len(with_pos_proxies)
+
+            pos_sum = torch.where(y == 1, pos_exp, torch.zeros_like(pos_exp)).sum(dim=0)
+            neg_sum = torch.where((1 - y) == 1, neg_exp, torch.zeros_like(neg_exp)).sum(dim=0)
+
+            pos_term = torch.log(1 + pos_sum).sum() / (num_valid_proxies + 1e-7)  # in case of nan
+            neg_term = torch.log(1 + neg_sum).sum() / y.size(1)
+
+            loss = pos_term + neg_term
+
+        _, indices = torch.topk(logits, k=10, dim=1, largest=True, sorted=True)
+        preds = torch.zeros_like(y)
+        preds[torch.arange(preds.size(0))[:, None], indices] = 1
+
+        if return_feats:
+            return loss, preds, y.long(), feats
+        return loss, preds, y.long()
+
+
 class eBayMultiContrastiveModule(eBayMultiModule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
