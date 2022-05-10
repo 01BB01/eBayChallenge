@@ -27,7 +27,7 @@ class eBayDataset(Dataset):
         self.aug_transform = aug_transform
         self.multi_label = multi_label
         if multi_label and split_name in ["train", "val"]:
-            with open(os.path.join(root_dir, split_name + "_multi_labels_40.json"), "r") as f:
+            with open(os.path.join(root_dir, split_name + "_multi_labels.json"), "r") as f:
                 self.multi_labels = json.load(f)
         else:
             self.multi_labels = None
@@ -50,7 +50,7 @@ class eBayDataset(Dataset):
         if self.split_name in ["train", "val"]:
             sample["text"] = self.annotations["AUCT_TITL"][idx]
             if self.multi_label:
-                labels = torch.zeros(18700)
+                labels = torch.zeros(22295)
                 labels[self.multi_labels[idx]] = 1
                 sample["multi_label"] = labels
                 sample["fake"] = False
@@ -61,7 +61,7 @@ class eBayDataset(Dataset):
         else:
             sample["text"] = ""
             if self.multi_label:
-                labels = torch.zeros(18700)
+                labels = torch.zeros(22295)
                 sample["multi_label"] = labels
                 sample["fake"] = True
             else:
