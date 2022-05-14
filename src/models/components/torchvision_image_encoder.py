@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torchvision
 
+from src.models.components.gem import GeM
+
 
 def get_timm(name, pretrained=True, **kwargs):
     names = [
@@ -41,6 +43,8 @@ class TorchvisionImageEncoder(nn.Module):
         pool_type: str = "avg",
         drop_rate: float = 0.0,
         drop_path_rate: float = 0.0,
+        gem_p: int = 0,
+        learnable_p: bool = False,
     ):
         super().__init__()
 
@@ -52,6 +56,12 @@ class TorchvisionImageEncoder(nn.Module):
             self.model = model
             # remove ImageNet classifier
             self.model.reset_classifier(-1)
+
+            if gem_p > 0:  # if gem_p is set, convert all avgpool to gempool
+                if "convnext" in name and gem_p > 0:
+                    self.model.global_pool = GeM(gem_p, learnable_p=learnable_p)
+                elif "swin" in name:
+                    self.model.avgpool = GeM(gem_p, dim=2, learnable_p=learnable_p)
         else:
             model = getattr(torchvision.models, name)(
                 pretrained=pretrained, zero_init_residual=zero_init_residual
