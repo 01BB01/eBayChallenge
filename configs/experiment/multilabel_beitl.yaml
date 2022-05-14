@@ -14,9 +14,9 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "multilabel_swinl_ema_poly_0.5"
+name: "multilabel_beitl_ema_poly"
 
-seed: 10086
+seed: 7777
 
 trainer:
   min_epochs: 20
@@ -27,18 +27,18 @@ model:
   lr: 0.0001
   classifier_lr_multiplier: 10.0
   weight_decay: 0.0001
-  warmup_steps: 59440
+  warmup_steps: 104020
   milestones: [10, 15]
   net:
-    name: swin_large_patch4_window12_384_in22k
+    name: beit_large_patch16_384
     drop_path_rate: 0.4
-  output_dim: 1536
+  output_dim: 1024
   optimizer: adamw
   multi_label_smoothing: True
-  poly_loss_weight: 0.5
+  poly_loss_weight: 2
 
 datamodule:
-  batch_size: 14
+  batch_size: 8
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop

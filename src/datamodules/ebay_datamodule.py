@@ -23,6 +23,7 @@ class eBayDataModule(LightningDataModule):
         multi_label: bool = False,
         concat_train_index: bool = False,
         load_train_for_predict: bool = False,
+        load_query_only: bool = False,
     ):
         super().__init__()
 
@@ -146,15 +147,18 @@ class eBayDataModule(LightningDataModule):
         )
 
     def predict_dataloader(self):
-        index_loader = DataLoader(
-            dataset=self.data_index,
+        query_loader = DataLoader(
+            dataset=self.data_query,
             batch_size=self.hparams.batch_size,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
         )
-        query_loader = DataLoader(
-            dataset=self.data_query,
+        # FIXME: temp fix to handle query2 only
+        if self.hparams.load_query_only:
+            return query_loader, query_loader
+        index_loader = DataLoader(
+            dataset=self.data_index,
             batch_size=self.hparams.batch_size,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,

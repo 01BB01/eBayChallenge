@@ -700,6 +700,7 @@ class eBayMultiModule(LightningModule):
         num_classes: int = 22295,
         weight_balance: bool = False,
         poly_loss_weight: float = 0.0,
+        load_ema: bool = False,
         **kwargs
     ):
         super().__init__()
@@ -816,6 +817,11 @@ class eBayMultiModule(LightningModule):
         # reset metrics at the end of every epoch
         self.train_acc.reset()
         self.val_acc.reset()
+
+    def on_load_checkpoint(self, checkpoint):
+        super().on_load_checkpoint(checkpoint)
+        if self.hparams.load_ema:
+            self.load_state_dict(checkpoint["ema_state_dict"], strict=False)
 
     def get_params(self):
         net_params = get_configured_parameters(
