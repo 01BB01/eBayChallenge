@@ -59,7 +59,8 @@ class TorchvisionImageEncoder(nn.Module):
 
             if gem_p > 0:  # if gem_p is set, convert all avgpool to gempool
                 if "convnext" in name and gem_p > 0:
-                    self.model.global_pool = GeM(gem_p, learnable_p=learnable_p)
+                    self.model.head.global_pool = GeM(gem_p, learnable_p=learnable_p)
+                    self.model.head.norm.reset_parameters()
                 elif "swin" in name:
                     self.model.avgpool = GeM(gem_p, dim=2, learnable_p=learnable_p)
         else:
@@ -68,7 +69,10 @@ class TorchvisionImageEncoder(nn.Module):
             )
             modules = list(model.children())[:-2]
             self.model = nn.Sequential(*modules)
-            self.pool = self._pool_func(pool_type, num_output_features)
+            if gem_p > 0:
+                self.pool = GeM(gem_p, learnable_p=learnable_p)
+            else:
+                self.pool = self._pool_func(pool_type, num_output_features)
 
     def _pool_func(self, pool_type, num_output_features):
         pool_func = nn.AdaptiveAvgPool2d if pool_type == "avg" else nn.AdaptiveMaxPool2d
