@@ -68,7 +68,7 @@ def ensemble(config: DictConfig) -> None:
 
     if config.get("re_ranking"):
         log.info("Applying re-ranking to cosine distance...")
-        _, pred_indices = torch.topk(dist_matrix, k=100, dim=1, largest=True, sorted=True)
+        _, pred_indices = torch.topk(dist_matrix, k=config.topk, dim=1, largest=True, sorted=True)
         topk_index_feats = index_feats[pred_indices]
 
         g_g_dist = torch.cdist(topk_index_feats, topk_index_feats)
@@ -83,6 +83,9 @@ def ensemble(config: DictConfig) -> None:
                     q_g_dist[qidx].view(1, -1),
                     q_q_dist[qidx, qidx].view(1, 1),
                     g_g_dist[qidx],
+                    config.k1,
+                    config.k2,
+                    config.lambda_value,
                 )
             )
         new_dists = np.stack(new_dists)
