@@ -17,7 +17,7 @@ class eBayDataModule(LightningDataModule):
         train_transforms: List[Any] = None,
         val_transforms: List[Any] = None,
         aug_transforms: List[Any] = None,
-        query_key: str = "query_part1",
+        query_key: str = "query_part2",
         retrieval_setting: bool = False,
         index_trainable: bool = False,
         multi_label: bool = False,
