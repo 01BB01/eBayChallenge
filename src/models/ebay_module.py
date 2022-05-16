@@ -701,6 +701,7 @@ class eBayMultiModule(LightningModule):
         weight_balance: bool = False,
         poly_loss_weight: float = 0.0,
         load_ema: bool = False,
+        normalize_softmax: bool = False,
         **kwargs
     ):
         super().__init__()
@@ -710,7 +711,10 @@ class eBayMultiModule(LightningModule):
         self.save_hyperparameters(logger=False)
 
         self.net = net
-        self.linear = nn.Linear(output_dim, num_classes, bias=False)
+        if normalize_softmax:
+            self.linear = CosSim(output_dim, num_classes, 0.07, True)
+        else:
+            self.linear = nn.Linear(output_dim, num_classes, bias=False)
 
         # loss function
         if multi_label_smoothing:

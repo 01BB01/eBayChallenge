@@ -4,6 +4,7 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as F
+from timm.data.auto_augment import rand_augment_transform
 from torch import Tensor
 
 
@@ -215,3 +216,16 @@ class RandomCutmix(torch.nn.Module):
             f")"
         )
         return s
+
+
+class TimmAA(nn.Module):
+    def __init__(self, config_str, img_size_min, mean):
+        super().__init__()
+        aa_params = dict(
+            translate_const=int(img_size_min * 0.45),
+            img_mean=tuple([min(255, round(255 * x)) for x in mean]),
+        )
+        self.transform = rand_augment_transform(config_str, aa_params)
+
+    def forward(self, img):
+        return self.transform(img)

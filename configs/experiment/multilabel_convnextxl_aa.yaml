@@ -1,0 +1,62 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=baseline
+
+defaults:
+  - override /datamodule: ebay.yaml
+  - override /model: multi_label.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /trainer: ddp.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+name: "multilabel_convnextxl_aa"
+
+seed: 678
+
+trainer:
+  min_epochs: 25
+  max_epochs: 25
+  gpus: 8
+
+model:
+  lr: 0.0001
+  classifier_lr_multiplier: 10.0
+  weight_decay: 0.0001
+  warmup_steps: 29720
+  milestones: [10, 20]
+  net:
+    name: convnext_xlarge_in22ft1k
+    drop_rate: 0.0
+    drop_path_rate: 0.4
+  output_dim: 2048
+  optimizer: adamw
+  multi_label_smoothing: True
+  normalize_softmax: True
+
+datamodule:
+  batch_size: 28
+  multi_label: True
+  train_transforms:
+    - _target_: torchvision.transforms.RandomResizedCrop
+      size: [224, 224]
+      scale: [0.2, 1.0]
+    - _target_: torchvision.transforms.RandomHorizontalFlip
+    - _target_: src.datamodules.components.transforms.TimmAA
+      config_str: rand-m9-mstd0.5-inc1
+      img_size_min: 224
+      mean: [0.485, 0.456, 0.406]
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+    - _target_: torchvision.transforms.RandomErasing
+      p: 0.25
+
+logger:
+  wandb:
+    tags: ["ebay", "${name}"]
