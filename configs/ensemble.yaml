@@ -14,6 +14,7 @@ feature_dirs:
   - logs/evaluations/runs/multilabel_convnextxl_ema/2022-05-03_04-37-41/
   - logs/evaluations/runs/multilabel_swinl_ema_poly/2022-05-05_01-15-24/
   - logs/evaluations/runs/multilabel_swinl_ema_poly_0.5/2022-05-06_21-02-23/
+  # - logs/evaluations/runs/multilabel_beitl_ema_poly/2022-05-10_16-34-52/
 
 csv_save_dir: ${hydra:run.dir}
 
@@ -24,3 +25,11 @@ ignore_warnings: True
 whitening: True
 
 re_ranking: True
+
+topk: 100
+
+k1: 10
+
+k2: 6
+
+lambda_value: 0.5
