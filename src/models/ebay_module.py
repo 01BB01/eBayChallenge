@@ -16,7 +16,7 @@ from torchvision.transforms import RandomChoice
 
 from src.datamodules.components.transforms import RandomCutmix, RandomMixup
 from src.utils.distributed import gather_tensor_along_batch
-from src.utils.modelling import get_configured_parameters
+from src.utils.modelling import CosineAnnealingWarmupRestarts, get_configured_parameters
 
 from .components.cossim import CosSim
 from .components.losses import (
@@ -702,6 +702,8 @@ class eBayMultiModule(LightningModule):
         poly_loss_weight: float = 0.0,
         load_ema: bool = False,
         normalize_softmax: bool = False,
+        head_init_scale: float = 1.0,
+        first_cycle_steps: int = -1,
         **kwargs
     ):
         super().__init__()
@@ -715,6 +717,7 @@ class eBayMultiModule(LightningModule):
             self.linear = CosSim(output_dim, num_classes, 0.07, True)
         else:
             self.linear = nn.Linear(output_dim, num_classes, bias=False)
+            self.linear.weight.data.mul_(head_init_scale)
 
         # loss function
         if multi_label_smoothing:
@@ -857,6 +860,14 @@ class eBayMultiModule(LightningModule):
         if self.hparams.milestones is not None:
             lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
+        if self.hparams.first_cycle_steps > 0:
+            lr_scheduler = CosineAnnealingWarmupRestarts(
+                optimizer,
+                self.hparams.first_cycle_steps,
+                max_lr=self.hparams.lr,
+                warmup_steps=self.warmup_steps,
+            )
+            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
         return {"optimizer": optimizer}
 
     def optimizer_step(
@@ -873,11 +884,14 @@ class eBayMultiModule(LightningModule):
         # update params
         optimizer.step(closure=optimizer_closure)
 
-        # manually warm up lr without a scheduler
-        if self.trainer.global_step < self.hparams.warmup_steps:
-            lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
-            for pg in optimizer.param_groups:
-                pg["lr"] = lr_scale * self.hparams.lr
+        if self.hparams.milestones is not None:
+            # manually warm up lr without a scheduler
+            if self.trainer.global_step < self.hparams.warmup_steps:
+                lr_scale = min(
+                    1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps
+                )
+                for pg in optimizer.param_groups:
+                    pg["lr"] = lr_scale * self.hparams.lr
 
 
 class eBayMultiProxyModule(eBayMultiModule):
