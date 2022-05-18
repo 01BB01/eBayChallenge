@@ -27,8 +27,8 @@ model:
   lr: 0.0001
   head_init_scale: 0.001
   weight_decay: 0.0001
-  warmup_steps: 30795
-  first_cycle_steps: 123180
+  warmup_steps: 29720
+  first_cycle_steps: 118880
   net:
     name: convnext_xlarge_in22ft1k
     drop_rate: 0.0
@@ -39,7 +39,7 @@ model:
   poly_loss_weight: 0.5
 
 datamodule:
-  batch_size: 26
+  batch_size: 28
   multi_label: True
   train_transforms:
     - _target_: torchvision.transforms.RandomResizedCrop
