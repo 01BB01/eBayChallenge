@@ -14,21 +14,21 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "multilabel_convnextxl_aa_poly"
+name: "multilabel_convnextxl_aa_cosine"
 
 seed: 678
 
 trainer:
-  min_epochs: 25
-  max_epochs: 25
+  min_epochs: 20
+  max_epochs: 20
   gpus: 8
 
 model:
   lr: 0.0001
-  classifier_lr_multiplier: 10.0
+  head_init_scale: 0.001
   weight_decay: 0.0001
-  warmup_steps: 29720
-  milestones: [10, 20]
+  warmup_steps: 30795
+  first_cycle_steps: 123180
   net:
     name: convnext_xlarge_in22ft1k
     drop_rate: 0.0
