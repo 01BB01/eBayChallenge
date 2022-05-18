@@ -865,7 +865,7 @@ class eBayMultiModule(LightningModule):
                 optimizer,
                 self.hparams.first_cycle_steps,
                 max_lr=self.hparams.lr,
-                warmup_steps=self.warmup_steps,
+                warmup_steps=self.hparams.warmup_steps,
             )
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
         return {"optimizer": optimizer}
