@@ -16,7 +16,7 @@ from torchvision.transforms import RandomChoice
 
 from src.datamodules.components.transforms import RandomCutmix, RandomMixup
 from src.utils.distributed import gather_tensor_along_batch
-from src.utils.modelling import CosineAnnealingWarmupRestarts, get_configured_parameters
+from src.utils.modelling import get_configured_parameters
 
 from .components.cossim import CosSim
 from .components.losses import (
@@ -703,7 +703,7 @@ class eBayMultiModule(LightningModule):
         load_ema: bool = False,
         normalize_softmax: bool = False,
         head_init_scale: float = 1.0,
-        first_cycle_steps: int = -1,
+        cosine_decay_steps: int = -1,
         **kwargs
     ):
         super().__init__()
@@ -860,14 +860,6 @@ class eBayMultiModule(LightningModule):
         if self.hparams.milestones is not None:
             lr_scheduler = MultiStepLR(optimizer, self.hparams.milestones)
             return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
-        if self.hparams.first_cycle_steps > 0:
-            lr_scheduler = CosineAnnealingWarmupRestarts(
-                optimizer,
-                self.hparams.first_cycle_steps,
-                max_lr=self.hparams.lr,
-                warmup_steps=self.hparams.warmup_steps,
-            )
-            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
         return {"optimizer": optimizer}
 
     def optimizer_step(
@@ -884,14 +876,22 @@ class eBayMultiModule(LightningModule):
         # update params
         optimizer.step(closure=optimizer_closure)
 
-        if self.hparams.milestones is not None:
-            # manually warm up lr without a scheduler
-            if self.trainer.global_step < self.hparams.warmup_steps:
-                lr_scale = min(
-                    1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps
+        # manually warm up lr without a scheduler
+        if self.trainer.global_step < self.hparams.warmup_steps:
+            lr_scale = min(1.0, float(self.trainer.global_step + 1) / self.hparams.warmup_steps)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr_scale * self.hparams.lr
+        else:
+            if self.hparams.cosine_decay_steps > 0:
+                min_lr = 1e-6
+                ratio = (self.trainer.global_step - self.hparams.warmup_steps) / (
+                    self.hparams.cosine_decay_steps - self.hparams.warmup_steps
+                )
+                cos_lr = min_lr + 0.5 * (self.hparams.lr - min_lr) * (
+                    1 + math.cos(math.pi * min(ratio, 1))
                 )
                 for pg in optimizer.param_groups:
-                    pg["lr"] = lr_scale * self.hparams.lr
+                    pg["lr"] = cos_lr
 
 
 class eBayMultiProxyModule(eBayMultiModule):
