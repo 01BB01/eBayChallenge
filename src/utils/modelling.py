@@ -80,10 +80,7 @@ class CosineAnnealingWarmupRestarts(_LRScheduler):
         if self.step_in_cycle == -1:
             return self.base_lrs
         elif self.step_in_cycle < self.warmup_steps:
-            return [
-                (self.max_lr - base_lr) * self.step_in_cycle / self.warmup_steps + base_lr
-                for base_lr in self.base_lrs
-            ]
+            return [self.max_lr * self.step_in_cycle / self.warmup_steps] * len(self.base_lrs)
         else:
             return [
                 base_lr
