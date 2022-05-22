@@ -25,7 +25,7 @@ trainer:
 
 model:
   lr: 0.0001
-  classifier_lr_multiplier: 10.0
+  head_init_scale: 0.001
   weight_decay: 0.0001
   warmup_steps: 28595
   cosine_decay_steps: 114380
