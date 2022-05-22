@@ -27,8 +27,8 @@ model:
   lr: 0.0001
   head_init_scale: 0.001
   weight_decay: 0.0001
-  warmup_steps: 29720
-  cosine_decay_steps: 118880
+  warmup_steps: 28595
+  cosine_decay_steps: 114380
   net:
     name: convnext_xlarge_in22ft1k
     drop_rate: 0.0
