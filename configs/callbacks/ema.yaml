@@ -22,7 +22,7 @@ lr_monitor:
 
 ema:
   _target_: src.utils.ema.EMA
-  decay: 0.9999
+  decay: 0.999
   ema_device: cuda:0
   pin_memory: True
   ema_evaluate: False
