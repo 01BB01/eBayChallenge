@@ -14,9 +14,9 @@ defaults:
 # this allows you to overwrite only specified parameters
 
 # name of the run determines folder name in logs
-name: "multilabel_swinl_ema_poly_0.5_cosine"
+name: "multilabel_swinl_ema_poly_0.5_cosine_large"
 
-seed: 10086
+seed: 42
 
 trainer:
   min_epochs: 20
@@ -24,14 +24,14 @@ trainer:
   gpus: 8
 
 model:
-  lr: 0.0001
+  lr: 0.00015
   head_init_scale: 0.001
   weight_decay: 0.0001
   warmup_steps: 57190
   cosine_decay_steps: 228760
   net:
     name: swin_large_patch4_window12_384_in22k
-    drop_path_rate: 0.4
+    drop_path_rate: 0.5
   output_dim: 1536
   optimizer: adamw
   multi_label_smoothing: True
