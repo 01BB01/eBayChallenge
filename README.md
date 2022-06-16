@@ -1,6 +1,6 @@
 <div align="center">
 
-# FGVC9 2022 eBay Challenge
+# Weakly Supervised Representation Learning for Large-Scale Product Retrieval
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
