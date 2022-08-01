@@ -1,6 +1,6 @@
 <div align="center">
 
-# Weakly Supervised Representation Learning for Large-Scale Product Retrieval
+# Large-Scale Product Retrieval with Weakly Supervised Representation Learning
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
@@ -9,13 +9,14 @@
 [![Conference](http://img.shields.io/badge/CVPR-2022-4b44ce.svg)](https://sites.google.com/view/fgvc9/home?authuser=0)
 [![Paper](http://img.shields.io/badge/paper-arxiv.2107.05856-B31B1B.svg)](https://arxiv.org/abs/2107.05856)
 [![Leaderboard](http://img.shields.io/badge/EvalAI-Leaderboard-4b44ce.svg)](https://eval.ai/web/challenges/challenge-page/1541/leaderboard/3831)
+[![Certificate](http://img.shields.io/badge/2nd-Certificate-yellow.svg)](https://kamwoh.github.io/files/2nd-place-certificate-eproduct-fgvc9.pdf)
 
 
 </div>
 
 ## Description
 
-Our codebase
+The second place soultion (Involution King) for 2nd eBay eProduct Visual Search Challenge (FGVC9-CVPR2022).
 
 ## How to run
 Organize dataset as following under ```./data/eBay/```
